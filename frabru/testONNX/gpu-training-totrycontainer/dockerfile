@@ -1,0 +1,5 @@
+FROM rocm/onnxruntime:latest
+WORKDIR /test
+COPY . .
+RUN pip install torch torchvision
+CMD ["/bin/bash"]
