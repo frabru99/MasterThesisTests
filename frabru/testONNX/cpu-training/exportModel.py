@@ -38,7 +38,7 @@ torch.onnx.export(model,
                   #Setting onnx model for training
                   training = torch.onnx.TrainingMode.TRAINING, 
                   
-                  opset_version=14, #Specifies ONNX Operator Set's Version
+                  opset_version=13, #Specifies ONNX Operator Set's Version
                   
                   dynamo=False #Disables torch.dynamo in order to use 
                   # legacy solution
