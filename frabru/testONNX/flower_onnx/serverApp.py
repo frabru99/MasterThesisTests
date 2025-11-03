@@ -21,10 +21,10 @@ BATCH_SIZE = 4 #Batch Size
 NUM_CLASSES = 10 #Same as Classes of the Dataset
 
 config = ConfigRecord(
-        {"batch_size": BATCH_SIZE, "use_augmentation": True, "data-path": "./data"}
+        {"batch_size": BATCH_SIZE, "use_augmentation": True, "data-path": "./data", "lr": 0.1}
 )
 
-metrics = MetricRecord({"accuracy": 0.9, "losses": [0.1, 0.001], "perplexity": 2.31})
+#metrics = MetricRecord({"accuracy": 0.9, "losses": [0.1, 0.001], "perplexity": 2.31})
 
 
 @server_app.main()
@@ -33,7 +33,7 @@ def main(grid: Grid, context: Context) -> None:
     #loading the state
     state = CheckpointState.load_checkpoint("./training_artifacts/checkpoint")
     parameters = dict(state.parameters)
-    parameters_dict = {name: trained_parameters[name].data for name in list(trained_parameters.keys())} 
+    parameters_dict = {name: parameters[name].data for name in list(parameters.keys())} 
 
     arrays = ArrayRecord(parameters_dict)
 
@@ -54,7 +54,3 @@ TODO: FIND THE RIGHT WAY TO SAVE THE CHECKPOINT IN .ONNX FILE
 print("\nSaving final model to disk...")
 state_dict = result.arrays
 torch.save(state_dict, "final_model.pt")
-
-
-
-

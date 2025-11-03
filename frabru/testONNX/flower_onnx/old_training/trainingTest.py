@@ -42,6 +42,7 @@ train_dataset = torchvision.datasets.CIFAR10(root='./data',
 train_loader = torch.utils.data.DataLoader(train_dataset, 
                                            batch_size=BATCH_SIZE,
                                            shuffle=True)
+
 print("Dataset ready.")
 
 
@@ -59,7 +60,7 @@ except Exception as e:
 
 
 
-print("Model loaded. Tarining Loop Starts...")
+print("Model loaded. Training Loop Starts...")
 
 # Training Loops 
 for i, (images_tensor, labels_tensor) in enumerate(train_loader):
@@ -102,6 +103,7 @@ for i, (images_tensor, labels_tensor) in enumerate(train_loader):
    
     if i % 10 == 0: # Every 10 batches
         print(f"Step {i}, Loss: {loss.item():.4f}")
+
         
 print("Training complete.")
 

@@ -73,28 +73,7 @@ def trainingFn():
 
         # Images in numpy array
         images = images_tensor.numpy()
-        
-        """
-        FOR BCEWithLogitsLoss, ONE-HOT ENCODING
-        # --- 2. Prepara le Etichette (One-Hot Encoding) ---
-            
-        # 2a. Ottieni gli indici (es. [3, 0, 8, 1])
-        #labels_indices = labels_tensor.numpy().astype(np.int64)
-        
-        # 2b. Gestisci l'ultimo batch (potrebbe non essere pieno)
-        #current_batch_size = labels_indices.shape[0]
-        
-        # 2c. Crea una matrice di zeri (es. 4x10)
-        #labels_one_hot = np.zeros((current_batch_size, NUM_CLASSES), dtype=np.float32)
-        
-        # 2d. Popola '1.0' nelle posizioni corrette
-        # Questo converte [3, 0, 8, 1] in [[0,0,0,1,0..], [1,0,0,0,0..], ...]
-        #labels_one_hot[np.arange(current_batch_size), labels_indices] = 1.0
-        
-        # 2e. 'labels' è ora l'array NumPy 2D [float32] corretto
-        #labels = labels_one_hot
-        """
-
+      
         # Labels in numpy array, in int64 type
         labels = labels_tensor.numpy().astype(np.int64)
 
@@ -113,12 +92,20 @@ def trainingFn():
         if i % 10 == 0: # Every 10 batches
             print(f"Step {i}, Loss: {loss.item():.4f}")
 
-        return loss_accum/len(train_loader)
+    return loss_accum/len(train_loader)
     
 
 @client_app.train()
 def train(msg: Message, context: Context):
     global state, train_dataset
+
+    print(dict(msg.content))
+
+    recordDictReceived =  msg.content
+
+    
+    
+    
     ##----DATA LOAD----##
     deviceChoice()
     dataLoad()
@@ -126,6 +113,7 @@ def train(msg: Message, context: Context):
 
     ##----TRAINING----##
     train_loss = trainingFn()
+    
 
     ##----RESPONSE----##
     trained_parameters = dict(state.parameters)
