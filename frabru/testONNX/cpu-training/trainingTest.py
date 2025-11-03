@@ -57,7 +57,6 @@ except Exception as e:
     exit()
 
 
-
 print("Model loaded. Tarining Loop Starts...")
 
 # Training Loops 
