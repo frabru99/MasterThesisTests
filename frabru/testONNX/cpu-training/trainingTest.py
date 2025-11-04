@@ -22,6 +22,7 @@ print(f"Using device: {device_type}" )
 print("Loading CIFAR-10...")
 
 
+
 # Input Images resizing for Resnet (224, 224)
 transform = transforms.Compose([
     transforms.Resize((224, 224)),
