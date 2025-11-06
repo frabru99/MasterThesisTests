@@ -7,11 +7,9 @@ import torchvision
 import torchvision.transforms as transforms
 import os
 
-
 BATCH_SIZE = 60 #Batch Size
 NUM_CLASSES = 10 #Same as Classes of the Dataset
 ARTIFACT_DIR = "./training_artifacts"
-
 
 print("Device Choice...")
 
