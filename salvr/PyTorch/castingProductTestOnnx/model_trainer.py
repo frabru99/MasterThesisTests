@@ -12,6 +12,16 @@ def get_model(num_classes=2):
     """Loads a pre-trained EfficientNet-B0 and replaces the classifier."""
     weights = models.EfficientNet_B0_Weights.DEFAULT
     model = models.efficientnet_b0(weights=weights)
+    
+    # List all kind of layers of EfficientNet
+    print("\n------ Layer Types of the model --------")
+    unique_type_layers = set()
+    for module in model.modules():
+        unique_type_layers.add(module.__class__.__name__)
+
+    for layer_type in sorted(list(unique_type_layers)):
+        print(layer_type)
+    
 
     # Freeze all the feature extractor layers
     for param in model.parameters():
@@ -35,7 +45,7 @@ def train_model(model, dataloaders):
     model = model.to(config.DEVICE)
     
     for epoch in range(config.NUM_EPOCHS):
-        print(f'Epoch {epoch+1}/{config.NUM_EPOCHS}')
+        print(f'----- Epoch {epoch+1}/{config.NUM_EPOCHS} -----')
         print('-' * 10)
 
         # Set model to training mode
