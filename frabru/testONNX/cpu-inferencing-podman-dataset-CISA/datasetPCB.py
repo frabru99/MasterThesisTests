@@ -32,6 +32,8 @@ def load_data(fraction=0.7):
     data_list_test = []
     class_to_idx = {cls: idx for idx, cls in enumerate(ModelConfig.classes)}
 
+    
+
     print("Loading Dataset...")
     for pcb_dir in ModelConfig.pcb_dirs:
         pcb_path = os.path.join(ModelConfig.data_root, pcb_dir)
@@ -92,24 +94,24 @@ def load_data(fraction=0.7):
     return data_list, data_list_test
 
 
+
 train_transform = transforms.Compose([
     transforms.Resize((ModelConfig.img_size, ModelConfig.img_size)),
-    transforms.RandomHorizontalFlip(),
-    transforms.RandomVerticalFlip(),
-    transforms.RandomRotation(10),
-    transforms.ColorJitter(brightness=0.2, contrast=0.2),
     transforms.ToTensor(),
-    transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+    transforms.Normalize([0.485, 0.456, 0.406],
+                         [0.229, 0.224, 0.225])
 ])
 
 val_transform = transforms.Compose([
     transforms.Resize((ModelConfig.img_size, ModelConfig.img_size)),
     transforms.ToTensor(),
-    transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+    transforms.Normalize([0.485, 0.456, 0.406],
+                         [0.229, 0.224, 0.225])
 ])
 
 test_transform = transforms.Compose([
     transforms.Resize((ModelConfig.img_size, ModelConfig.img_size)),
     transforms.ToTensor(),
-    transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+    transforms.Normalize([0.485, 0.456, 0.406],
+                         [0.229, 0.224, 0.225])
 ])

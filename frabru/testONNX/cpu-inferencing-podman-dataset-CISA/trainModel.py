@@ -1,5 +1,5 @@
 import torch
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader, WeightedRandomSampler
 from torchvision import models, transforms
 import os
 import numpy as np
@@ -8,11 +8,13 @@ from sklearn.model_selection import train_test_split
 from tqdm import tqdm
 
 
+
+
 #Local Scripts
 from datasetPCB import PCBDataset, load_data, train_transform, val_transform, test_transform
 from modelConfig import ModelConfig, modelCreation
-
-
+from optimizationMethods import pruning_multiple_parameters, simple_pruning_fn, iterative_pruning_fn, global_pruning, remove_pruning_re_parametrization
+from inferModel import balancingDataset
 
 def train_epoch(model, dataloader, criterion, optimizer, device):
 
@@ -97,6 +99,11 @@ def dataPrep():
     val_dataset = PCBDataset(val_data, transform=val_transform)
     test_dataset = PCBDataset(data_list_test, transform=test_transform)
     
+
+    train_dataset = balancingDataset(train_dataset)
+    test_dataset = balancingDataset(test_dataset)
+
+
     train_loader = DataLoader(
         train_dataset, 
         batch_size=ModelConfig.batch_size,
@@ -165,14 +172,16 @@ def trainModel():
             }, os.path.join(ModelConfig.save_dir, 'best_model.pth'))
             print(f"✓ Saved best model with val_acc: {val_acc:.2f}%")
     
+
+    #applyOptimization(model, train_loader)
+
     # Save final model
     torch.save({
         'epoch': ModelConfig.num_epochs,
         'model_state_dict': model.state_dict(),
-        'optimizer_state_dict': optimizer.state_dict(),
-        'val_acc': val_acc,
         'classes': ModelConfig.classes
     }, os.path.join(ModelConfig.save_dir, 'final_model.pth'))
+
     
     # Save training history
     with open(os.path.join(ModelConfig.save_dir, 'history.json'), 'w') as f:
@@ -182,3 +191,7 @@ def trainModel():
     print(f"Models saved in '{ModelConfig.save_dir}' directory")
 
     return model, test_dataset, test_loader
+
+def applyOptimization(model, train_loader):
+    parameters_to_prune = global_pruning(model)
+    remove_pruning_re_parametrization(model, parameters_to_prune)

@@ -11,8 +11,8 @@ class ModelConfig:
     pcb_dirs = ["pcb1", "pcb2", "pcb3", "pcb4"]
     classes = ["normal", "melt", "scratch", "bent", "missing","burnt", "dirt", "damage", "wrong place"]
     img_size= 224
-    batch_size= 32
-    num_epochs = 10
+    batch_size= 15
+    num_epochs = 3
     learning_rate = 0.0001
     train_perc = 0.7
     val_perc=0.2

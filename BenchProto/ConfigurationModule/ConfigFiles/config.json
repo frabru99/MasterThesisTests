@@ -1,0 +1,40 @@
+{
+    "models": [
+        {
+            "module": "torchvision.models",
+            "model_name": "mobilenet_v2",
+            "native": true,
+            "distilled": false,
+            "weights_path": "./ModelData/Weights/mobilenet_v2.pth",
+            "device": "cpu",
+            "class_name": "mobilenet_v2",
+            "weights_class": "MobileNet_V2_Weights",
+            "image_size": 224,
+            "num_classes": 1000,
+            "task": "classification",
+            "description": "Mobilenet V2 from torchvision"
+        },
+        {
+            "module": "torchvision.models",
+            "model_name": "efficientnet",
+            "native": false,
+            "distilled": false,
+            "weights_path": "./ModelData/Weights/efficientnet.pth",
+            "device": "cpu",
+            "class_name": "efficientnet_b0",
+            "weights_class": "EfficientNet_B0_Weights",
+            "image_size": 224,
+            "num_classes": 1000,
+            "task": "classification",
+            "description": "EfficientNet from Custom Models"
+        }
+    ],
+    "optimizations": {
+        "Quantization": "8int",
+        "Pruning": "RandomUnstructured"
+    },
+    "dataset": {
+        "dataset_path": "./ModelData/Dataset",
+        "batch_size": 32
+    }
+}
