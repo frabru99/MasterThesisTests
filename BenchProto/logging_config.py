@@ -34,12 +34,24 @@ TEST_LOGGING_CONFIG = {
     'loggers': {
         
         # 1. Your code's logger
-        'main': {
+        'BenchmarkingFactory': {
             'level': 'DEBUG',
             'handlers': ['console', 'test_file'],
-            'propagate': False # Stop logs from going to root
+            'propagate': False 
         },
-        
+
+        'main': {  
+        'level': 'DEBUG',
+        'handlers': ['console', 'test_file'],
+        'propagate': False
+        },
+
+        'BenchmarkingFactory.aiModel': {
+        'level': 'DEBUG',
+        'handlers': ['console', 'test_file'],
+        'propagate': False
+        },
+
         # 2. Silencing onnxruntime
         'onnxruntime': {
             'level': 'ERROR', # Only show ERRORs or higher
@@ -57,7 +69,7 @@ TEST_LOGGING_CONFIG = {
     
     # --- THE DEFAULT (ROOT) LOGGER ---
     'root': {
-        'level': 'DEBUG', # Default for all other libraries
+        'level': 'ERROR', # Default for all other libraries
         'handlers': ['console', 'test_file']
     }
 }

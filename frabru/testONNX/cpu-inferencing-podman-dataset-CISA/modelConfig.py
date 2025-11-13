@@ -12,8 +12,8 @@ class ModelConfig:
     classes = ["normal", "melt", "scratch", "bent", "missing","burnt", "dirt", "damage", "wrong place"]
     img_size= 224
     batch_size= 15
-    num_epochs = 3
-    learning_rate = 0.0001
+    num_epochs = 25
+    learning_rate = 0.01
     train_perc = 0.7
     val_perc=0.2
     num_workers = 4

@@ -3,35 +3,51 @@ from json import load, dump
 from logging import config, getLogger
 from logging_config import TEST_LOGGING_CONFIG
 from rich.pretty import pprint
-from rich.console import Console
 from os.path import exists
 from os import listdir
 from pathlib import Path
 from numpy import delete
+from pathlib import Path
 
 
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 logger = getLogger(__name__)
+config.dictConfig(TEST_LOGGING_CONFIG)
+configPath=str(PROJECT_ROOT / "ConfigurationModule" / "ConfigFiles" / "config.json")
+modelsLibraryPath = str(PROJECT_ROOT / "ConfigurationModule" / "ConfigFiles" / "models_library.json")
+optimizationsLibraryPath = str(PROJECT_ROOT / "ConfigurationModule" / "ConfigFiles" / "optimizations_library.json")
 
-configPath="./ConfigurationModule/ConfigFiles/config.json"
-modelsLibraryPath = "./ConfigurationModule/ConfigFiles/models_library.json"
-optimizationsLibraryPath = "./ConfigurationModule/ConfigFiles/optimizations_library.json"
+errorDatasetPathMessage =""" 
+BenchProto/
+├── ModelData/
+│   └── Dataset/
+│       └── dataset_name/
+│           └── test/
+│               ├── class1/
+│               │   └── image1...
+│               └── class2/
+│                   └── image1...
 
+"""
 
 class ConfigManager:
 
     def __init__(self, configSchemaPath="./ConfigurationModule/ConfigFiles/configScheme.json"):
         """
-        Creates the ConfigManger object, loading the JSON Schema to be complaiant with.
+        Creates the ConfigManger object, loading the JSON Schema which the configuration have
+        to be complaiant with.
+        
         """
         try:
             with open(configSchemaPath, "r") as configSchemaFile:
-                self.schema = load(configSchemaFile)
+                self.__schema = load(configSchemaFile)
         except (FileNotFoundError, Exception) as e:
             logger.error(f"Encountered a problem loading the config schema file.\nThe specific error is: {e}.")
 
 
 
-    def __printConfigFile(input: any, topic: str):
+    def __printConfigFile(self, input: any, topic: str) -> None:
         """
         Prints the input with pprint with a specified topic.
 
@@ -45,7 +61,7 @@ class ConfigManager:
 
 
     
-    def __checkModels(models: list) -> bool:
+    def __checkModels(self, models: list) -> bool:
         """
         Checks the availability of models wrote in config file. 
 
@@ -102,7 +118,7 @@ class ConfigManager:
                     logger.info("NO MODEL PRESENT IN THE CONFIGURATION. EXITING....")
                     exit(0)       
                 logger.info(f"SHOWING NEW MODELS CONFIGURATION...")
-                ConfigManager.__printConfigFile(models, " MODELS SECTION ")
+                self.__printConfigFile(models, " MODELS SECTION ")
             else:
                 logger.info(f"CONFIGURATION NOT CHANGED...")
 
@@ -114,7 +130,7 @@ class ConfigManager:
 
 
 
-    def __checkOptimizations(optimizations: dict) -> bool:
+    def __checkOptimizations(self, optimizations: dict) -> bool:
         """
         Checks the availability of optimization methods wrote in config file. 
 
@@ -156,14 +172,14 @@ class ConfigManager:
                 logger.info("NO OPTIMIZATIONS PRESENT IN THE CONFIGURATION. EXITING....")
                 exit(0)       
             
-            ConfigManager.__printConfigFile(optimizations, " OPTIMIZATIONS SECTION ")
+            self.__printConfigFile(optimizations, " OPTIMIZATIONS SECTION ")
 
         except (Exception) as e:
             logger.error(f"Encountered a generic problem in optimization check.\nThe specific error is: {e}")
 
         return True
 
-    def __checkDataset(dataset: dict) -> bool:
+    def __checkDataset(self, dataset: dict) -> bool:
         """
         Checks if the dataset path specified contains at least one file. The validity of the dataset will be checked later. 
 
@@ -173,13 +189,17 @@ class ConfigManager:
             - result: bool
         """
 
+        dataset_path = dataset["dataset_path"] + "/test"
+
         logger.info(f"CHECKING DATASET PATH...")
-        if exists(dataset["dataset_path"]) and len(listdir(dataset["dataset_path"]))>0:
+        if exists(dataset_path) and len(listdir(dataset_path))>1:
             logger.info(f"DATASET PATH RECOGNISED!")
-            ConfigManager.__printConfigFile(dataset, " DATASET SECTION ")
+            self.__printConfigFile(dataset, " DATASET SECTION ")
             return True
         
-        logger.error(f"Dataset path not recognised!")
+        logger.error(f"Dataset path not recognised! You should have this path configuration (with at least two classes):")
+        print(errorDatasetPathMessage)
+
         return False
         
 
@@ -201,20 +221,22 @@ class ConfigManager:
 
         
             logger.info("VALIDATING LOADED CONFIGURATION...")
-            validate(instance=config, schema=self.schema)
+            validate(instance=config, schema=self.__schema)
+
+    
         except (ValidationError, Exception) as e:
             logger.error(f"Encountered a problem validating the config file. Check if the fields provided are correct. \n The specific error is: {e}.\n")
-            return
+            return None
 
     
         logger.info("CONFIGURATION FILE CORRECTLY VALIDATED! \n")
-        ConfigManager.__printConfigFile(config, " INITIAL CONF. FILE ")
+        self.__printConfigFile(config, " INITIAL CONF. FILE ")
 
         logger.info("CHECKING THE MODELS...")
         
-        if ConfigManager.__checkModels(config["models"]) and ConfigManager.__checkDataset(config["dataset"]) and ConfigManager.__checkOptimizations(config["optimizations"]):
+        if self.__checkModels(config["models"]) and self.__checkDataset(config["dataset"]) and self__checkOptimizations(config["optimizations"]):
             logger.info("DONE!")
-            ConfigManager.__printConfigFile(config, " FINAL CONF. FILE ")
+            self.__printConfigFile(config, " FINAL CONF. FILE ")
             return config
         else:
             logger.info(f"EXITING...\n")
@@ -233,16 +255,16 @@ class ConfigManager:
         # It's an useless check, but we'll never know!
         try:
             logger.info("VALIDATING CREATED CONFIGURATON...")
-            validate(instance=config, schema=self.schema)
+            validate(instance=config, schema=self.__schema)
         except (ValidationError, Exception) as e:
             logger.error(f"Encountered a problem validating the config file. Check if the fields provided are correct. \n The specific error is: {e}.\n")
             return
 
         logger.info("CONFIGURATION FILE CORRECTLY VALIDATED! \n")
 
-        if ConfigManager.__checkModels(config["models"]) and ConfigManager.__checkDataset(config["dataset"]) and ConfigManager.__checkOptimizations(config["optimizations"]):
+        if self.__checkModels(config["models"]) and self.__checkDataset(config["dataset"]) and self.__checkOptimizations(config["optimizations"]):
             logger.info("DONE!")
-            ConfigManager.__printConfigFile(config, " FINAL CONF. FILE ")
+            self.__printConfigFile(config, " FINAL CONF. FILE ")
             logger.info(f"SAVING IT INTO {configPath}...")
 
             with open(configPath, "w") as configFile:
@@ -281,13 +303,12 @@ if __name__ == "__main__":
         ],
         "optimizations": {"Quantization": "8int", "Pruning": "RandomUnstructured"},
         "dataset": {
-            "dataset_path": "./ModelData/Dataset",
+            "dataset_path": "./ModelData/Dataset/dataset_name",
             "batch_size": 32
         }
     }
 
 
-    config.dictConfig(TEST_LOGGING_CONFIG)
     configManager = ConfigManager()
     #configFile = configManager.loadConfigFile()
     configManager.createConfigFile(configTest)

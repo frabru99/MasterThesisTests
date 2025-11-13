@@ -64,7 +64,7 @@ def balancingDataset(dataset):
         class_indices[label].append(i) 
         # Prendi max 20 per classe, ad esempio 
     
-    balanced_idx = [i for lbls in class_indices.values() for i in lbls[:100]] 
+    balanced_idx = [i for lbls in class_indices.values() for i in lbls[:200]] 
     balanced = Subset(dataset, balanced_idx)
 
     return balanced

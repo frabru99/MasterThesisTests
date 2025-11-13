@@ -34,7 +34,7 @@
         "Pruning": "RandomUnstructured"
     },
     "dataset": {
-        "dataset_path": "./ModelData/Dataset",
+        "dataset_path": "./ModelData/Dataset/dataset_name",
         "batch_size": 32
     }
 }
