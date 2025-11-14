@@ -1,5 +1,5 @@
 from jsonschema import validate, ValidationError
-from json import load, dump
+from json import load, dump, decoder
 from logging import config, getLogger
 from logging_config import TEST_LOGGING_CONFIG
 from rich.pretty import pprint
@@ -8,15 +8,21 @@ from os import listdir
 from pathlib import Path
 from numpy import delete
 from pathlib import Path
+from datetime import datetime
+from random import random
 
 
 
+logger = getLogger(__name__) #logger
+config.dictConfig(TEST_LOGGING_CONFIG) #logger config
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-logger = getLogger(__name__)
-config.dictConfig(TEST_LOGGING_CONFIG)
-configPath=str(PROJECT_ROOT / "ConfigurationModule" / "ConfigFiles" / "config.json")
-modelsLibraryPath = str(PROJECT_ROOT / "ConfigurationModule" / "ConfigFiles" / "models_library.json")
-optimizationsLibraryPath = str(PROJECT_ROOT / "ConfigurationModule" / "ConfigFiles" / "optimizations_library.json")
+configPath=str(PROJECT_ROOT / "ConfigurationModule" / "ConfigFiles" / "config.json") #config file path
+configSchemaPath=str(PROJECT_ROOT / "ConfigurationModule" / "ConfigFiles" / "configScheme.json") #configSchema file path
+configHistoryPath=str(PROJECT_ROOT / "ConfigurationModule" / "ConfigFiles" / "configHistory.json") #configHistory file path
+modelsLibraryPath = str(PROJECT_ROOT / "ConfigurationModule" / "ConfigFiles" / "models_library.json") #models_library file path
+optimizationsLibraryPath = str(PROJECT_ROOT / "ConfigurationModule" / "ConfigFiles" / "optimizations_library.json") #optimizations_library file path
+VALID_CHOICES = {'y','n'} #Choices for CPU Usage
+PARAMETER_TO_AVOID = {"amount"} #Set for parameter to avoid in Optimizations Section Check
 
 errorDatasetPathMessage =""" 
 BenchProto/
@@ -33,7 +39,7 @@ BenchProto/
 
 class ConfigManager:
 
-    def __init__(self, configSchemaPath="./ConfigurationModule/ConfigFiles/configScheme.json"):
+    def __init__(self, configSchemaPath=configSchemaPath):
         """
         Creates the ConfigManger object, loading the JSON Schema which the configuration have
         to be complaiant with.
@@ -113,12 +119,15 @@ class ConfigManager:
 
 
             if changed:
+
                 models = delete(models, idx_to_del).tolist() #Deleting the "native" models not present in models_library
                 if len(models)==0:
                     logger.info("NO MODEL PRESENT IN THE CONFIGURATION. EXITING....")
-                    exit(0)       
+                    exit(0)
+
                 logger.info(f"SHOWING NEW MODELS CONFIGURATION...")
                 self.__printConfigFile(models, " MODELS SECTION ")
+
             else:
                 logger.info(f"CONFIGURATION NOT CHANGED...")
 
@@ -141,6 +150,7 @@ class ConfigManager:
         """
 
         logger.info("CHECKING OPTIMIZATION METHODS...")
+
         try:
             optimizations_library = None
 
@@ -157,14 +167,21 @@ class ConfigManager:
             }
 
             for optimization_name,value in list(optimizations.items()):
+
+                if optimization_name in PARAMETER_TO_AVOID:
+                    continue
+
                 if optimization_name not in optimizations_library_sets:
                     logger.info(f"THE OPTIMIZATION {optimization_name} IS NOT AVAILABLE. REMOVING IT FROM CONFIG FILE...")
                     optimizations.pop(optimization_name, None)
                     continue
+
                 elif optimizations[optimization_name] not in optimizations_library_sets[optimization_name]:
+
                         logger.error(f"THE OPTIMIZATION {optimization_name} - {optimizations[optimization_name]} DOESN'T EXISTS. REMOVING IT FROM CONFIG FILE...")
                         optimizations.pop(optimization_name, None)
                         continue
+
                 else:
                     logger.info(f"OPTIMIZATION {optimization_name} - {optimizations[optimization_name]} RECOGNISED!")
 
@@ -178,6 +195,7 @@ class ConfigManager:
             logger.error(f"Encountered a generic problem in optimization check.\nThe specific error is: {e}")
 
         return True
+
 
     def __checkDataset(self, dataset: dict) -> bool:
         """
@@ -201,6 +219,45 @@ class ConfigManager:
         print(errorDatasetPathMessage)
 
         return False
+
+    
+    def __updateConfigHistory(self, config: dict) -> None:
+
+        """
+        This function asks to the user if the loaded/created configurations has to be added to the historyConfig.json file.
+
+        Input:
+            - config: the created/loaded configuration
+        
+        """
+        
+        while True:
+            choice = input(f"Do you want save the config into the history? (y/n): ").lower()
+
+            if choice in VALID_CHOICES:
+                if choice == 'y':
+                    try:
+                        history_dict = {}
+                        with open(configHistoryPath, "r") as configHistoryFile:
+                            try:
+                                history_dict = load(configHistoryFile)
+
+                            except decoder.JSONDecodeError as e:
+                                logger.info(f"THE HISTORY FILE WAS EMPTY!")
+
+                            history_dict[f"{datetime.now()}_{random()}"] = config
+
+                        with open(configHistoryPath, "w") as configHistoryFile:
+                            dump(history_dict, configHistoryFile, indent=4)
+
+                    except (FileNotFoundError,Exception) as e:
+                        logger.error(f"Encountered a problem saving the config in the history.\nThe specific error is: {e}.\n")
+            else:
+                print("Invalid Input. Please enter 'y' or 'n'.")
+                continue
+            break
+        print("\n")
+
         
 
     def loadConfigFile(self, path=configPath) -> dict:
@@ -223,9 +280,8 @@ class ConfigManager:
             logger.info("VALIDATING LOADED CONFIGURATION...")
             validate(instance=config, schema=self.__schema)
 
-    
         except (ValidationError, Exception) as e:
-            logger.error(f"Encountered a problem validating the config file. Check if the fields provided are correct. \n The specific error is: {e}.\n")
+            logger.error(f"Encountered a problem validating the config file. Check if the fields provided are correct.\nThe specific error is: {e}.\n")
             return None
 
     
@@ -234,16 +290,17 @@ class ConfigManager:
 
         logger.info("CHECKING THE MODELS...")
         
-        if self.__checkModels(config["models"]) and self.__checkDataset(config["dataset"]) and self__checkOptimizations(config["optimizations"]):
+        if self.__checkModels(config["models"]) and self.__checkDataset(config["dataset"]) and self.__checkOptimizations(config["optimizations"]):
             logger.info("DONE!")
             self.__printConfigFile(config, " FINAL CONF. FILE ")
+            self.__updateConfigHistory(config)
             return config
         else:
             logger.info(f"EXITING...\n")
 
 
-
-    def createConfigFile(self, config: dict):
+    
+    def createConfigFile(self, config: dict) -> None:
         """
         Creates the configuration file from a constructed dict created by the interactive CLI session.
 
@@ -272,46 +329,49 @@ class ConfigManager:
 
             logger.info(f"SAVED!")
 
+            self.__updateConfigHistory(config)
+
+
         else:
             logger.info(f"EXITING...\n")
 
-        
-
+    
 
 if __name__ == "__main__":
 
-    configTest = {
-        "models": [
-            {
-                "model_name": "mobilenet_v2", 
-                "native": True
-            },
-            {
-                "module": "torchvision.models",
-                "model_name": "efficientnet", 
-                "native": False,
-                "distilled": False,
-                "weights_path": "./ModelData/Weights/efficientnet.pth",
-                "device": "cpu",
-                "class_name": "efficientnet_b0",
-                "weights_class": "EfficientNet_B0_Weights", 
-                "image_size": 224,
-                "num_classes": 1000,
-                "task": "classification",
-                "description": "EfficientNet from Custom Models"
-            }
-        ],
-        "optimizations": {"Quantization": "8int", "Pruning": "RandomUnstructured"},
-        "dataset": {
-            "dataset_path": "./ModelData/Dataset/dataset_name",
-            "batch_size": 32
-        }
-    }
+
+    # configTest = {
+    #     "models": [
+    #         {
+    #             "model_name": "mobilenet_v2", 
+    #             "native": True
+    #         },
+    #         {
+    #             "module": "torchvision.models",
+    #             "model_name": "efficientnet", 
+    #             "native": False,
+    #             "distilled": False,
+    #             "weights_path": "./ModelData/Weights/efficientnet.pth",
+    #             "device": "cpu",
+    #             "class_name": "efficientnet_b0",
+    #             "weights_class": "EfficientNet_B0_Weights", 
+    #             "image_size": 224,
+    #             "num_classes": 1000,
+    #             "task": "classification",
+    #             "description": "EfficientNet from Custom Models"
+    #         }
+    #     ],
+    #     "optimizations": {"Quantization": "8int", "Pruning": "RandomUnstructured", "amount": 0.7},
+    #     "dataset": {
+    #         "dataset_path": "./ModelData/Dataset/dataset_name",
+    #         "batch_size": 32
+    #     }
+    # }
 
 
     configManager = ConfigManager()
-    #configFile = configManager.loadConfigFile()
-    configManager.createConfigFile(configTest)
+    configFile = configManager.loadConfigFile()
+    #configManager.createConfigFile(configTest)
 
 
 

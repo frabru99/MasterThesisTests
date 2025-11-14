@@ -69,7 +69,7 @@ TEST_LOGGING_CONFIG = {
     
     # --- THE DEFAULT (ROOT) LOGGER ---
     'root': {
-        'level': 'ERROR', # Default for all other libraries
+        'level': 'DEBUG', # Default for all other libraries
         'handlers': ['console', 'test_file']
     }
 }

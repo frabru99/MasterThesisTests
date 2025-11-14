@@ -72,12 +72,9 @@
         },
         "minItems": 1
     },
-
-
     "optimizations": {
         "description": "A collection of optimization pparameters.",
         "type": "object",
-        "required": ["Quantization", "Pruning"],
         "properties": {
             "Quantization": {
                 "description": "Quantization level object", 
@@ -86,6 +83,14 @@
             "Pruning": {
                 "description": "Pruning level object", 
                 "type": "string"
+            }
+        },
+        "dependentSchemas":{
+            "Pruning":{
+                "properties":{
+                    "amount": {"type": "number"}
+                },
+                "required":["amount"]
             }
         },
         "minItems": 1

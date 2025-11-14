@@ -30,7 +30,7 @@ def modelCreation():
     for param in model.features.parameters():
         param.requires_grad = False
 
-    model.classifier = nn.Sequential(nn.Linear(in_features, len(ModelConfig.classes)))
+    model.classifier[1] = nn.Linear(in_features, len(ModelConfig.classes))
 
     model = model.to(ModelConfig.device)
     
