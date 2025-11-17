@@ -1,15 +1,16 @@
+from logging import config, getLogger
+from logging_config import TEST_LOGGING_CONFIG
+config.dictConfig(TEST_LOGGING_CONFIG)
+logger = getLogger(__name__)
+
+
 from psutil import  cpu_count, cpu_percent, virtual_memory, disk_partitions, disk_usage
 from GPUtil import getGPUs
 #from amdsmi import init_amd_smi_lib, get_gpu_device_handles
 from pyamdgpuinfo import detect_gpus, get_gpu
 from platform import uname
 from rich.pretty import pprint
-from logging import config, getLogger
-from logging_config import TEST_LOGGING_CONFIG
 
-
-config.dictConfig(TEST_LOGGING_CONFIG)
-logger = getLogger(__name__)
 
 #TODO: Take some measurements in order to set the REAL thresholds.
 defaultHardwareEmptyMessage="N.A."

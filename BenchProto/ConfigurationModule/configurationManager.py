@@ -1,7 +1,10 @@
-from jsonschema import validate, ValidationError
-from json import load, dump, decoder
 from logging import config, getLogger
 from logging_config import TEST_LOGGING_CONFIG
+logger = getLogger(__name__) #logger
+config.dictConfig(TEST_LOGGING_CONFIG) #logger config
+
+from jsonschema import validate, ValidationError
+from json import load, dump, decoder
 from rich.pretty import pprint
 from os.path import exists
 from os import listdir
@@ -13,8 +16,6 @@ from random import random
 
 
 
-logger = getLogger(__name__) #logger
-config.dictConfig(TEST_LOGGING_CONFIG) #logger config
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 configPath=str(PROJECT_ROOT / "ConfigurationModule" / "ConfigFiles" / "config.json") #config file path
 configSchemaPath=str(PROJECT_ROOT / "ConfigurationModule" / "ConfigFiles" / "configScheme.json") #configSchema file path

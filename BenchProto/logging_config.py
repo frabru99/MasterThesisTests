@@ -1,6 +1,3 @@
-import logging
-
-
 TEST_LOGGING_CONFIG = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -40,7 +37,7 @@ TEST_LOGGING_CONFIG = {
             'propagate': False 
         },
 
-        'main': {  
+        '__main__': {  
         'level': 'DEBUG',
         'handlers': ['console', 'test_file'],
         'propagate': False
@@ -69,7 +66,7 @@ TEST_LOGGING_CONFIG = {
     
     # --- THE DEFAULT (ROOT) LOGGER ---
     'root': {
-        'level': 'DEBUG', # Default for all other libraries
+        'level': 'ERROR', # Default for all other libraries
         'handlers': ['console', 'test_file']
     }
 }
