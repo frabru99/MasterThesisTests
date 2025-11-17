@@ -32,7 +32,7 @@
     "optimizations": {
         "Quantization": "8int",
         "Pruning": "RandomUnstructured",
-        "amount": 0.7
+        "amount": 0.1
     },
     "dataset": {
         "dataset_path": "./ModelData/Dataset/dataset_name",

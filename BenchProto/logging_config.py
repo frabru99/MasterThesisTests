@@ -49,6 +49,19 @@ TEST_LOGGING_CONFIG = {
         'propagate': False
         },
 
+        'ProbeHardwareModule.probeHardwareManager': {
+        'level': 'DEBUG',
+        'handlers': ['console', 'test_file'],
+        'propagate': False
+        },
+
+        'PackageDownloadModule.packageDownloadManager': {
+        'level': 'DEBUG',
+        'handlers': ['console', 'test_file'],
+        'propagate': False
+        },
+
+
         # 2. Silencing onnxruntime
         'onnxruntime': {
             'level': 'ERROR', # Only show ERRORs or higher
