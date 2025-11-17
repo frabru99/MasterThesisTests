@@ -5,4 +5,7 @@ data/
 .venv
 *.pyc
 TestDatasets
+*.log
+BenchProto/ModelData/Dataset/*
+BenchProto/BenchProtoLogFile.log
 
