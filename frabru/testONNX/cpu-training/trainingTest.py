@@ -22,6 +22,7 @@ print(f"Using device: {device_type}" )
 print("Loading CIFAR-10...")
 
 
+
 # Input Images resizing for Resnet (224, 224)
 transform = transforms.Compose([
     transforms.Resize((224, 224)),
@@ -55,6 +56,7 @@ except Exception as e:
     print("Make sure to extract the correct model with right number of classes in FC layer.")
     print(f"Error Details: {e}")
     exit()
+
 
 print("Model loaded. Tarining Loop Starts...")
 
@@ -100,10 +102,17 @@ for i, (images_tensor, labels_tensor) in enumerate(train_loader):
     if i % 10 == 0: # Every 10 batches
         print(f"Step {i}, Loss: {loss.item():.4f}")
 
+    if i == 100:
+        break
+        
 print("Training complete.")
+
+
+
 
 try:
     CheckpointState.save_checkpoint(state, f"{ARTIFACT_DIR}/checkpoint_updated")
     print(f"Checkpoint updated in {ARTIFACT_DIR}/checkpoint_updated")
 except Exception as e:
     print(f"Error in checkpoint updated saving: {e}")
+

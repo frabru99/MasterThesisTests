@@ -4,7 +4,7 @@ import torchvision
 NUM_CLASSES=10 #Num. of classes of the new classification task. 
 
 
-model = torchvision.models.resnet18(weights=torchvision.models.ResNet18_Weights.IMAGENET1K_V1) #Download the pre-trained model on IMAGENET with 1K classes. 
+model = torchvision.models.MobileNetV1(weights=torchvision.models.MobileNet_V1_Weights.IMAGENET1K_V1) #Download the pre-trained model on IMAGENET with 1K classes. 
 
 
 num_ftrs = model.fc.in_features #Takes the number of inputs of the FC layer 
@@ -12,7 +12,7 @@ num_ftrs = model.fc.in_features #Takes the number of inputs of the FC layer
 model.fc = torch.nn.Linear(num_ftrs, NUM_CLASSES) #substitution of the FC layer with a new one, with the same number of input but a new number of output classes. 
 
 
-model_name = "resnet" 
+model_name = "mobilenet" 
 
 model.train() #Training Mode
 
@@ -38,7 +38,7 @@ torch.onnx.export(model,
                   #Setting onnx model for training
                   training = torch.onnx.TrainingMode.TRAINING, 
                   
-                  opset_version=14, #Specifies ONNX Operator Set's Version
+                  opset_version=13, #Specifies ONNX Operator Set's Version
                   
                   dynamo=False #Disables torch.dynamo in order to use 
                   # legacy solution
