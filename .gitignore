@@ -1,6 +1,8 @@
-venv/
+venv
+.venv
 .env
 data/
 .venv
 *.pyc
 TestDatasets
+
