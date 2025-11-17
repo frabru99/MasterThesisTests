@@ -7,5 +7,5 @@ data/
 TestDatasets
 *.log
 BenchProto/ModelData/Dataset/*
-BenchProto/BenchProtoLogFile.log
+
 
