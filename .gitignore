@@ -4,3 +4,4 @@ venv
 data/
 *.pyc
 *.log
+BenchProto/ModelData/Dataset/*
