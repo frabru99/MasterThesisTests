@@ -2,6 +2,6 @@ venv
 .venv
 .env
 data/
+.venv
 *.pyc
-*.log
-BenchProto/ModelData/Dataset/*
+TestDatasets
