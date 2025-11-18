@@ -38,13 +38,19 @@ TEST_LOGGING_CONFIG = {
         },
 
         '__main__': {  
-        'level': 'DEBUG',
+        'level': 'INFO',
+        'handlers': ['console', 'test_file'],
+        'propagate': False
+        },
+
+        'BenchmarkingFactory.dataWrapper': {  
+        'level': 'INFO',
         'handlers': ['console', 'test_file'],
         'propagate': False
         },
 
         'BenchmarkingFactory.aiModel': {
-        'level': 'DEBUG',
+        'level': 'INFO',
         'handlers': ['console', 'test_file'],
         'propagate': False
         },
