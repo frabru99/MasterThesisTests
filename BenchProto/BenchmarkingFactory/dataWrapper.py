@@ -59,12 +59,20 @@ class DataWrapper():
 
         self.current_data_config = {"data_dir": dataset_info['data_dir'], "batch_size": dataset_info['batch_size'], "image_size": model_info['image_size']}
 
+<<<<<<< HEAD
         data_path = PROJECT_ROOT / self.current_data_config['data_dir']
+=======
+        data_path = Path(self.current_data_config['data_dir'])
+>>>>>>> main
         data_transforms = self._getModelTransforms(model_info)
 
         try:
             inference_dataset = datasets.ImageFolder(
+<<<<<<< HEAD
                 str(data_path / "test"),
+=======
+                data_path / "test",
+>>>>>>> main
                 data_transforms
             )
 

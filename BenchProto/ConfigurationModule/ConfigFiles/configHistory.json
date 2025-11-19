@@ -1,5 +1,9 @@
 {
+<<<<<<< HEAD
     "d929f85cc9d034cecd2a839b9151a34c01b76357476e5e24d5270202": {
+=======
+    "50fefeec1a17dcc6b5d7eaa2f0556f58fa3f109b592ef03bd79aaab2": {
+>>>>>>> main
         "models": [
             {
                 "module": "torchvision.models",
@@ -31,6 +35,7 @@
             }
         ],
         "optimizations": {
+<<<<<<< HEAD
             "Quantization": {
                 "method": "QInt8",
                 "type": "static"
@@ -39,13 +44,22 @@
                 "method": "L1Unstructured",
                 "amount": 0.7
             }
+=======
+            "Quantization": "8int",
+            "Pruning": "RandomUnstructured",
+            "amount": 0.7
+>>>>>>> main
         },
         "dataset": {
             "dataset_path": "./ModelData/Dataset/dataset_name",
             "batch_size": 32
         }
     },
+<<<<<<< HEAD
     "d85c3e978d242d51dd5c19e4b6266c241795262781805de002a28020": {
+=======
+    "4be0112202fef51be86528e5b3d2200c78de536bc3f50487aa949dfb": {
+>>>>>>> main
         "models": [
             {
                 "module": "torchvision.models",
@@ -55,7 +69,11 @@
                 "weights_path": "./ModelData/Weights/mobilenet_v2.pth",
                 "device": "cpu",
                 "class_name": "mobilenet_v2",
+<<<<<<< HEAD
                 "weights_class": "MobileNet_V2_Weights.DEFAULT",
+=======
+                "weights_class": "MobileNet_V2_Weights",
+>>>>>>> main
                 "image_size": 224,
                 "num_classes": 1000,
                 "task": "classification",
@@ -69,7 +87,11 @@
                 "weights_path": "./ModelData/Weights/efficientnet.pth",
                 "device": "cpu",
                 "class_name": "efficientnet_b0",
+<<<<<<< HEAD
                 "weights_class": "EfficientNet_B0_Weights.DEFAULT",
+=======
+                "weights_class": "EfficientNet_B0_Weights",
+>>>>>>> main
                 "image_size": 224,
                 "num_classes": 1000,
                 "task": "classification",
@@ -77,6 +99,7 @@
             }
         ],
         "optimizations": {
+<<<<<<< HEAD
             "Quantization": {
                 "method": "QInt8",
                 "type": "static"
@@ -85,11 +108,17 @@
                 "method": "L1Unstructured",
                 "amount": 0.7
             }
+=======
+            "Quantization": "8int",
+            "Pruning": "RandomUnstructured",
+            "amount": 0.1
+>>>>>>> main
         },
         "dataset": {
             "dataset_path": "./ModelData/Dataset/dataset_name",
             "batch_size": 32
         }
+<<<<<<< HEAD
     },
     "d58d1740d58466cc6e77dd2edd213a0b037b16e3778fa6f1b7583721": {
         "models": [
@@ -178,5 +207,7 @@
             "data_dir": "ModelData/Dataset/dataset_name",
             "batch_size": 32
         }
+=======
+>>>>>>> main
     }
 }

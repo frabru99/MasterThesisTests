@@ -1,8 +1,13 @@
 from logging import config, getLogger
 from logging_config import TEST_LOGGING_CONFIG
+<<<<<<< HEAD
 config.dictConfig(TEST_LOGGING_CONFIG) #logger config
 logger = getLogger(__name__) #logger
 
+=======
+logger = getLogger(__name__) #logger
+config.dictConfig(TEST_LOGGING_CONFIG) #logger config
+>>>>>>> main
 
 from jsonschema import validate, ValidationError
 from json import load, dump, decoder
@@ -16,6 +21,7 @@ from hashlib import sha224
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+<<<<<<< HEAD
 config_path=str(PROJECT_ROOT / "ConfigurationModule" / "ConfigFiles" / "config.json") #config file path
 config_schema_path=str(PROJECT_ROOT / "ConfigurationModule" / "ConfigFiles" / "configScheme.json") #configSchema file path
 config_history_path=str(PROJECT_ROOT / "ConfigurationModule" / "ConfigFiles" / "configHistory.json") #configHistory file path
@@ -24,6 +30,17 @@ optimizations_library_path = str(PROJECT_ROOT / "ConfigurationModule" / "ConfigF
 VALID_CHOICES = {'y','n'} #Choices for CPU Usage
 
 error_dataset_path_message =""" 
+=======
+configPath=str(PROJECT_ROOT / "ConfigurationModule" / "ConfigFiles" / "config.json") #config file path
+configSchemaPath=str(PROJECT_ROOT / "ConfigurationModule" / "ConfigFiles" / "configScheme.json") #configSchema file path
+configHistoryPath=str(PROJECT_ROOT / "ConfigurationModule" / "ConfigFiles" / "configHistory.json") #configHistory file path
+modelsLibraryPath = str(PROJECT_ROOT / "ConfigurationModule" / "ConfigFiles" / "models_library.json") #models_library file path
+optimizationsLibraryPath = str(PROJECT_ROOT / "ConfigurationModule" / "ConfigFiles" / "optimizations_library.json") #optimizations_library file path
+VALID_CHOICES = {'y','n'} #Choices for CPU Usage
+PARAMETER_TO_AVOID = {"amount"} #Set for parameter to avoid in Optimizations Section Check
+
+errorDatasetPathMessage =""" 
+>>>>>>> main
 BenchProto/
 ├── ModelData/
 │   └── Dataset/
@@ -38,15 +55,24 @@ BenchProto/
 
 class ConfigManager:
 
+<<<<<<< HEAD
     def __init__(self, schema_path=config_schema_path):
+=======
+    def __init__(self, configSchemaPath=configSchemaPath):
+>>>>>>> main
         """
         Creates the ConfigManger object, loading the JSON Schema which the configuration have
         to be complaiant with.
         
         """
         try:
+<<<<<<< HEAD
             with open(schema_path, "r") as config_schema_file:
                 self.__schema = load(config_schema_file)
+=======
+            with open(configSchemaPath, "r") as configSchemaFile:
+                self.__schema = load(configSchemaFile)
+>>>>>>> main
         except (FileNotFoundError, Exception) as e:
             logger.error(f"Encountered a problem loading the config schema file.\nThe specific error is: {e}.")
 
@@ -81,8 +107,13 @@ class ConfigManager:
             idx_to_del=[]
 
             try:
+<<<<<<< HEAD
                 with open(models_library_path, "r") as models_library_file:
                     models_library = load(models_library_file)
+=======
+                with open(modelsLibraryPath, "r") as modelsLibraryFile:
+                    models_library = load(modelsLibraryFile)
+>>>>>>> main
             except (FileNotFoundError, Exception) as e:
                 logger.error(f"The library file was not found or not loaded in the correct way.\nThe specific error is {e}.")
                 return False
@@ -129,8 +160,11 @@ class ConfigManager:
 
             else:
                 logger.info(f"CONFIGURATION NOT CHANGED...")
+<<<<<<< HEAD
                 self.__printConfigFile(models, " MODELS SECTION ")
 
+=======
+>>>>>>> main
 
 
         except (Exception) as e:
@@ -154,11 +188,18 @@ class ConfigManager:
 
         try:
             optimizations_library = None
+<<<<<<< HEAD
             opt_to_remove=[]
 
             try:
                 with open(optimizations_library_path, "r") as optimizations_library_file:
                     optimizations_library = load(optimizations_library_file)
+=======
+
+            try:
+                with open(optimizationsLibraryPath, "r") as optimizationsLibraryFile:
+                    optimizations_library = load(optimizationsLibraryFile)
+>>>>>>> main
             except (FileNotFoundError, Exception) as e:
                 logger.error(f"The library file was not found or not loaded in the correct way.\nThe specific error is {e}.")
                 return False
@@ -170,6 +211,7 @@ class ConfigManager:
 
             for optimization_name in optimizations.keys():
 
+<<<<<<< HEAD
                 if optimization_name not in optimizations_library_sets:
                     logger.info(f"THE OPTIMIZATION {optimization_name} IS NOT AVAILABLE. REMOVING IT FROM CONFIG FILE...")
                     opt_to_remove.append(optimization_name)
@@ -188,6 +230,35 @@ class ConfigManager:
                 for name in opt_to_remove:
                     optimizations.pop(name, None)
                     
+=======
+                if optimization_name in PARAMETER_TO_AVOID:
+                    continue
+
+                if optimization_name not in optimizations_library_sets:
+                    logger.info(f"THE OPTIMIZATION {optimization_name} IS NOT AVAILABLE. REMOVING IT FROM CONFIG FILE...")
+                    optimizations.pop(optimization_name, None)
+                    continue
+
+                elif optimizations[optimization_name] not in optimizations_library_sets[optimization_name]:
+
+                        logger.error(f"THE OPTIMIZATION {optimization_name} - {optimizations[optimization_name]} DOESN'T EXISTS. REMOVING IT FROM CONFIG FILE...")
+                        optimizations.pop(optimization_name, None)
+                        continue
+
+                else:
+                    logger.info(f"OPTIMIZATION {optimization_name} - {optimizations[optimization_name]} RECOGNISED!")
+
+
+                if "amount" in optimizations.keys():
+                    amount = optimizations["amount"]
+                    if amount <= 0 or amount >1:
+                        logger.error("You should provide an amount of Pruning between 0.1 and 1.\n")
+                        logger.info(f"EXITING...")
+                        exit(0)
+                
+                   
+
+>>>>>>> main
 
             if len(optimizations) == 0:
                 logger.info("NO OPTIMIZATIONS PRESENT IN THE CONFIGURATION. EXITING....")
@@ -211,7 +282,11 @@ class ConfigManager:
             - result: bool
         """
 
+<<<<<<< HEAD
         dataset_path = dataset["data_dir"] + "/test"
+=======
+        dataset_path = dataset["dataset_path"] + "/test"
+>>>>>>> main
 
         logger.info(f"CHECKING DATASET PATH...")
         if exists(dataset_path) and len(listdir(dataset_path))>1:
@@ -220,7 +295,11 @@ class ConfigManager:
             return True
         
         logger.error(f"Dataset path not recognised! You should have this path configuration (with at least two classes):")
+<<<<<<< HEAD
         print(error_dataset_path_message)
+=======
+        print(errorDatasetPathMessage)
+>>>>>>> main
 
         return False
 
@@ -238,9 +317,15 @@ class ConfigManager:
     
 
         history_dict = {}
+<<<<<<< HEAD
         with open(config_history_path, "r") as config_history_file:
             try:
                 history_dict = load(config_history_file)
+=======
+        with open(configHistoryPath, "r") as configHistoryFile:
+            try:
+                history_dict = load(configHistoryFile)
+>>>>>>> main
                 if hash_value in history_dict.keys():
                     logger.info("The configuration is already present in the history!")
                     return
@@ -259,8 +344,13 @@ class ConfigManager:
 
                         history_dict[f"{hash_value}"] = config
 
+<<<<<<< HEAD
                         with open(config_history_path, "w") as config_history_file:
                             dump(history_dict, config_history_file, indent=4)
+=======
+                        with open(configHistoryPath, "w") as configHistoryFile:
+                            dump(history_dict, configHistoryFile, indent=4)
+>>>>>>> main
 
                         logger.info("CONFIG ADDED CORRECTLY TO THE HISTORY!")
 
@@ -274,7 +364,11 @@ class ConfigManager:
 
         
 
+<<<<<<< HEAD
     def loadConfigFile(self, path=config_path) -> (dict, str):
+=======
+    def loadConfigFile(self, path=configPath) -> (dict, str):
+>>>>>>> main
         """
         Loads the configuration from a JSON file. 
 
@@ -286,8 +380,13 @@ class ConfigManager:
 
         config = ""
         try:
+<<<<<<< HEAD
             with open(path, "r") as config_file:
                 config = load(config_file)
+=======
+            with open(configPath, "r") as configFile:
+                config = load(configFile)
+>>>>>>> main
                 logger.info("LOADING CONFIGURATON...")
 
         
@@ -322,9 +421,12 @@ class ConfigManager:
 
         Input: 
             - config: the config dict generated from interactive session
+<<<<<<< HEAD
 
         Output:
             - hash_value: returns the hash_value of the config for id purposes
+=======
+>>>>>>> main
         
         """
 
@@ -341,10 +443,17 @@ class ConfigManager:
         if self.__checkModels(config["models"]) and self.__checkDataset(config["dataset"]) and self.__checkOptimizations(config["optimizations"]):
             logger.info("DONE!")
             self.__printConfigFile(config, " FINAL CONF. FILE ")
+<<<<<<< HEAD
             logger.info(f"SAVING IT INTO {config_path}...")
 
             with open(config_path, "w") as config_file:
                 dump(config, config_file, indent=4)
+=======
+            logger.info(f"SAVING IT INTO {configPath}...")
+
+            with open(configPath, "w") as configFile:
+                dump(config, configFile, indent=4)
+>>>>>>> main
 
             logger.info(f"SAVED!")
 
@@ -359,6 +468,7 @@ class ConfigManager:
 if __name__ == "__main__":
 
 
+<<<<<<< HEAD
     configTest = {
         "models": [
             {
@@ -401,6 +511,41 @@ if __name__ == "__main__":
     #configFile, hash_value = configManager.loadConfigFile()
 
     hash_value = configManager.createConfigFile(configTest)
+=======
+    # configTest = {
+    #     "models": [
+    #         {
+    #             "model_name": "mobilenet_v2", 
+    #             "native": True
+    #         },
+    #         {
+    #             "module": "torchvision.models",
+    #             "model_name": "efficientnet", 
+    #             "native": False,
+    #             "distilled": False,
+    #             "weights_path": "./ModelData/Weights/efficientnet.pth",
+    #             "device": "cpu",
+    #             "class_name": "efficientnet_b0",
+    #             "weights_class": "EfficientNet_B0_Weights", 
+    #             "image_size": 224,
+    #             "num_classes": 1000,
+    #             "task": "classification",
+    #             "description": "EfficientNet from Custom Models"
+    #         }
+    #     ],
+    #     "optimizations": {"Quantization": "8int", "Pruning": "RandomUnstructured", "amount": 0.7},
+    #     "dataset": {
+    #         "dataset_path": "./ModelData/Dataset/dataset_name",
+    #         "batch_size": 32
+    #     }
+    # }
+
+
+    configManager = ConfigManager()
+    configFile, hash_value = configManager.loadConfigFile()
+
+    #hash_value = configManager.createConfigFile(configTest)
+>>>>>>> main
 
 
 

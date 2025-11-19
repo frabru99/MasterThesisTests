@@ -1,5 +1,9 @@
 {
+<<<<<<< HEAD
     "Quantization": ["QInt8", "8float", "16int", "16float"],
+=======
+    "Quantization": ["8int", "8float", "16int", "16float"],
+>>>>>>> main
     "Pruning": ["RandomUnstructured", "L1Unstructured", "L2Unstructured"]
 }
 
