@@ -55,6 +55,18 @@ TEST_LOGGING_CONFIG = {
         'propagate': False
         },
 
+        'BenchmarkingFactory.doe': {
+        'level': 'ERROR',
+        'handlers': ['console', 'test_file'],
+        'propagate': False
+        },
+
+        'ConfigurationModule.configurationManager': {
+        'level': 'ERROR',
+        'handlers': ['console', 'test_file'],
+        'propagate': False
+        },
+
         'ProbeHardwareModule.probeHardwareManager': {
         'level': 'ERROR',
         'handlers': ['console', 'test_file'],
