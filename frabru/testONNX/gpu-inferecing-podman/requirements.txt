@@ -1,0 +1,5 @@
+numpy==2.2.6
+onnx==1.16.0
+onnxruntime-gpu
+torch==2.9.0
+torchvision==0.24.0
