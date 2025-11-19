@@ -1,4 +1,4 @@
 {
-    "needed": true,
-    "gpu": true
+    "needed": false,
+    "gpu": false
 }
