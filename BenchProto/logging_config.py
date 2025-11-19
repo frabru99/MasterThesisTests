@@ -44,19 +44,19 @@ TEST_LOGGING_CONFIG = {
         },
 
         'BenchmarkingFactory.aiModel': {
-        'level': 'DEBUG',
+        'level': 'ERROR',
         'handlers': ['console', 'test_file'],
         'propagate': False
         },
 
         'ProbeHardwareModule.probeHardwareManager': {
-        'level': 'DEBUG',
+        'level': 'ERROR',
         'handlers': ['console', 'test_file'],
         'propagate': False
         },
 
         'PackageDownloadModule.packageDownloadManager': {
-        'level': 'DEBUG',
+        'level': 'ERROR',
         'handlers': ['console', 'test_file'],
         'propagate': False
         },
