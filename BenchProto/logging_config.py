@@ -38,25 +38,31 @@ TEST_LOGGING_CONFIG = {
         },
 
         '__main__': {  
-        'level': 'DEBUG',
+        'level': 'INFO',
+        'handlers': ['console', 'test_file'],
+        'propagate': False
+        },
+
+        'BenchmarkingFactory.dataWrapper': {  
+        'level': 'INFO',
         'handlers': ['console', 'test_file'],
         'propagate': False
         },
 
         'BenchmarkingFactory.aiModel': {
-        'level': 'DEBUG',
+        'level': 'ERROR',
         'handlers': ['console', 'test_file'],
         'propagate': False
         },
 
         'ProbeHardwareModule.probeHardwareManager': {
-        'level': 'DEBUG',
+        'level': 'ERROR',
         'handlers': ['console', 'test_file'],
         'propagate': False
         },
 
         'PackageDownloadModule.packageDownloadManager': {
-        'level': 'DEBUG',
+        'level': 'ERROR',
         'handlers': ['console', 'test_file'],
         'propagate': False
         },

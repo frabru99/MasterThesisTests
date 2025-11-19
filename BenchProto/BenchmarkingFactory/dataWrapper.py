@@ -51,7 +51,8 @@ class DataWrapper():
         Loads or re-loads the inference data (from the 'test' folder)
         """ 
 
-        logger.info(f"Loading new dataset from: {dataset_info['data_dir']}.")
+        logger.debug(f"-----> [DATAWRAPPER MODULE] LOAD INFERENCE DATA")
+        logger.debug(f"Loading dataset from: {dataset_info['data_dir']}.")
         
         image_size = model_info['image_size']
         weights = model_info['weights_class']
@@ -74,7 +75,7 @@ class DataWrapper():
             )
 
             self.current_data_config['class_names'] = inference_dataset.classes
-            logger.info(f"Data loaded. Classes found: {self.getDatasetInfo('class_names')}")
+            logger.info(f"Data loaded and setted on {model_info['model_name']}. Classes found: {self.getDatasetInfo('class_names')}")
 
         except FileNotFoundError:
             logger.error(f"Data directory not found at {data_path / 'test'}")
@@ -84,6 +85,7 @@ class DataWrapper():
             logger.error(f"An error occurred during data loading: {e}")
             self.current_data_config['class_names'] = None
 
+        logger.debug(f"<----- [DATAWRAPPER MODULE] LOAD INFERENCE DATA\n")
         
     def getLoader(self):
         """

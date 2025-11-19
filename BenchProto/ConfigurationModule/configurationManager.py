@@ -275,7 +275,6 @@ class ConfigManager:
             else:
                 print("Invalid Input. Please enter 'y' or 'n'.")
                 continue
-
             break
         print("\n")
 
