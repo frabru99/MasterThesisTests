@@ -1,0 +1,6 @@
+psutil==7.0.0
+GPUtil==1.4.0
+pyamdgpuinfo==2.1.7
+rich==14.2.0
+jsonschema==4.25.1
+numpy==2.2.6

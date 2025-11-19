@@ -50,10 +50,23 @@ TEST_LOGGING_CONFIG = {
         },
 
         'BenchmarkingFactory.aiModel': {
-        'level': 'INFO',
+        'level': 'ERROR',
         'handlers': ['console', 'test_file'],
         'propagate': False
         },
+
+        'ProbeHardwareModule.probeHardwareManager': {
+        'level': 'ERROR',
+        'handlers': ['console', 'test_file'],
+        'propagate': False
+        },
+
+        'PackageDownloadModule.packageDownloadManager': {
+        'level': 'ERROR',
+        'handlers': ['console', 'test_file'],
+        'propagate': False
+        },
+
 
         # 2. Silencing onnxruntime
         'onnxruntime': {

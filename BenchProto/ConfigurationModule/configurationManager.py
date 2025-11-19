@@ -11,10 +11,7 @@ from os import listdir
 from pathlib import Path
 from numpy import delete
 from pathlib import Path
-from datetime import datetime
-from random import random
-
-
+from hashlib import sha224
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -168,7 +165,7 @@ class ConfigManager:
                 key: set(value) for key, value in optimizations_library.items()
             }
 
-            for optimization_name,value in list(optimizations.items()):
+            for optimization_name in optimizations.keys():
 
                 if optimization_name in PARAMETER_TO_AVOID:
                     continue
@@ -186,6 +183,17 @@ class ConfigManager:
 
                 else:
                     logger.info(f"OPTIMIZATION {optimization_name} - {optimizations[optimization_name]} RECOGNISED!")
+
+
+                if "amount" in optimizations.keys():
+                    amount = optimizations["amount"]
+                    if amount <= 0 or amount >1:
+                        logger.error("You should provide an amount of Pruning between 0.1 and 1.\n")
+                        logger.info(f"EXITING...")
+                        exit(0)
+                
+                   
+
 
             if len(optimizations) == 0:
                 logger.info("NO OPTIMIZATIONS PRESENT IN THE CONFIGURATION. EXITING....")
@@ -223,34 +231,44 @@ class ConfigManager:
         return False
 
     
-    def __updateConfigHistory(self, config: dict) -> None:
+    def __updateConfigHistory(self, config: dict, hash_value: str) -> None:
 
         """
-        This function asks to the user if the loaded/created configurations has to be added to the historyConfig.json file.
+        This function asks to the user if the loaded/created configurations has to be added to the historyConfig.json file. 
+        If the hash_value (key) is already present, the function returns.
 
         Input:
             - config: the created/loaded configuration
         
         """
-        
+    
+
+        history_dict = {}
+        with open(configHistoryPath, "r") as configHistoryFile:
+            try:
+                history_dict = load(configHistoryFile)
+                if hash_value in history_dict.keys():
+                    logger.info("The configuration is already present in the history!")
+                    return
+
+            except decoder.JSONDecodeError as e:
+                logger.info(f"THE HISTORY FILE WAS EMPTY!")
+
+
+
         while True:
             choice = input(f"Do you want save the config into the history? (y/n): ").lower()
 
             if choice in VALID_CHOICES:
                 if choice == 'y':
                     try:
-                        history_dict = {}
-                        with open(configHistoryPath, "r") as configHistoryFile:
-                            try:
-                                history_dict = load(configHistoryFile)
 
-                            except decoder.JSONDecodeError as e:
-                                logger.info(f"THE HISTORY FILE WAS EMPTY!")
-
-                            history_dict[f"{datetime.now()}_{random()}"] = config
+                        history_dict[f"{hash_value}"] = config
 
                         with open(configHistoryPath, "w") as configHistoryFile:
                             dump(history_dict, configHistoryFile, indent=4)
+
+                        logger.info("CONFIG ADDED CORRECTLY TO THE HISTORY!")
 
                     except (FileNotFoundError,Exception) as e:
                         logger.error(f"Encountered a problem saving the config in the history.\nThe specific error is: {e}.\n")
@@ -262,7 +280,7 @@ class ConfigManager:
 
         
 
-    def loadConfigFile(self, path=configPath) -> dict:
+    def loadConfigFile(self, path=configPath) -> (dict, str):
         """
         Loads the configuration from a JSON file. 
 
@@ -295,14 +313,16 @@ class ConfigManager:
         if self.__checkModels(config["models"]) and self.__checkDataset(config["dataset"]) and self.__checkOptimizations(config["optimizations"]):
             logger.info("DONE!")
             self.__printConfigFile(config, " FINAL CONF. FILE ")
-            self.__updateConfigHistory(config)
-            return config
+            hash_value = sha224(str(config).encode("utf-8")).hexdigest()
+            self.__updateConfigHistory(config, hash_value)
+            return config, hash_value
         else:
             logger.info(f"EXITING...\n")
+            return None, None
 
 
     
-    def createConfigFile(self, config: dict) -> None:
+    def createConfigFile(self, config: dict) -> str:
         """
         Creates the configuration file from a constructed dict created by the interactive CLI session.
 
@@ -331,9 +351,9 @@ class ConfigManager:
 
             logger.info(f"SAVED!")
 
-            self.__updateConfigHistory(config)
-
-
+            hash_value = sha224(str(config).encode("utf-8")).hexdigest()
+            self.__updateConfigHistory(config, hash_value)
+            return hash_value
         else:
             logger.info(f"EXITING...\n")
 
@@ -372,8 +392,10 @@ if __name__ == "__main__":
 
 
     configManager = ConfigManager()
-    configFile = configManager.loadConfigFile()
-    #configManager.createConfigFile(configTest)
+    configFile, hash_value = configManager.loadConfigFile()
+
+    #hash_value = configManager.createConfigFile(configTest)
+
 
 
 
