@@ -7,6 +7,7 @@ import torch.nn as nn
 import torch.nn.utils.prune as prune
 from abc import ABC, abstractmethod
 from pathlib import Path
+from copy import deepcopy
 from BenchmarkingFactory.dataWrapper import DataWrapper
 from BenchmarkingFactory.aiModel import AIModel
 
@@ -43,20 +44,26 @@ class PruningOptimization(Optimization):
             -optimized_model: aiModel optimized with global pruning
         """
 
+        logger.debug(f"-----> [OPTIMIZATION MODULE] APPLY OPTIMIZATION ")
+
         if not self.current_aimodel:
             raise MissingAIModelError(
                 "No AIModel set. Call setAIModel() before applying optimization"
             )
 
         current_model_info = self.current_aimodel.model_info
+        pruned_model_info = deepcopy(current_model_info)
 
         logger.debug(f"Creating a copy of the model {current_model_info['model_name']}")
-        pruned_aimodel = AIModel(current_model_info)
+        pruned_aimodel = AIModel(pruned_model_info)
         model_to_prune = pruned_aimodel.getModel()
 
         pruning_method = self.__getPruningMethod()
         layer_to_prune = self.__getLayerNames(model_to_prune)
         amount = self.getOptimizationInfo('amount')
+
+        logger.info(f"Amount:{amount}")
+        logger.info(f"Method:{pruning_method}")
 
         parameters_to_prune = []
 
@@ -78,6 +85,8 @@ class PruningOptimization(Optimization):
 
         pruned_aimodel.model_info['model_name'] += "_pruned"
         pruned_aimodel.model_info['description'] += f"(Pruned with {self.getOptimizationInfo('Pruning')} with amount {self.getOptimizationInfo('amount')})"
+        logger.debug(f"<----- [OPTIMIZATION MODULE] APPLY OPTIMIZATION")
+
         return pruned_aimodel
 
     def setOptimizationConfig(self, optimization_config):
@@ -141,6 +150,7 @@ class PruningOptimization(Optimization):
         
         if pruning_method not in class_methods:
             logger.error(f"Pruning method {pruning_method} not supported, fall back on RandomPruning")
+            return prune.RandomUnstructured
         class_method = getattr(prune, pruning_method)
 
         if class_method is None:
@@ -196,7 +206,7 @@ if __name__ == "__main__":
 
     # Pruning Info example
     pruning_info = {
-        "Pruning": "RandomUnstructured",
+        "Pruning": "L1Unstructured",
         "amount": 0.3
     }
 
@@ -211,6 +221,15 @@ if __name__ == "__main__":
     pruning_optimizator.setAIModel(efficientnet)
     pruned_efficientnet = pruning_optimizator.applyOptimization()
 
+
+    # Attaching dataset to unpruned model
+    dataset.loadInferenceData(model_info = efficientnet.model_info, dataset_info = dataset_info)
+    inference_loader = dataset.getLoader()
+
+    # Inference with unpruned model
+    efficientnet.createOnnxModel(inference_loader)
+    efficientnet.runInference(inference_loader)
+
     # Attaching dataset to pruned model
     dataset.loadInferenceData(model_info = pruned_efficientnet.model_info, dataset_info = dataset_info)
     inference_loader = dataset.getLoader()
@@ -218,6 +237,4 @@ if __name__ == "__main__":
     # Inference with prunde model
     pruned_efficientnet.createOnnxModel(inference_loader)
     pruned_efficientnet.runInference(inference_loader)
-
-
 
