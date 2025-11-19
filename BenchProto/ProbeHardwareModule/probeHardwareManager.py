@@ -11,6 +11,8 @@ from pyamdgpuinfo import detect_gpus, get_gpu
 from platform import uname
 from rich.pretty import pprint
 
+from PackageDownloadModule.packageDownloadManager import PackageDownloadManager
+
 
 #TODO: Take some measurements in order to set the REAL thresholds.
 defaultHardwareEmptyMessage="N.A."
@@ -170,7 +172,19 @@ class ProbeHardwareManager():
             exit(0)
 
 
-    def __checkAMDGpuAvailability(self, gpu_info: dict, there_is_gpu: bool, gpu_type: str) -> None:
+    def __checkAMDGpuAvailability(self, gpu_info: dict, there_is_gpu: bool, gpu_type: str) -> (bool,str):
+        """
+        Checks if there are AMD GPUs in the system. WORKS ONLY ON LINUX!
+
+        Input:
+            - gpu_info: dictionary
+            - there_is_gpu: bool value
+            - gpu_type: str value
+
+        Output: 
+            - there_is_gpu: bool
+            - gpu_type: str value
+        """
 
         #AMD (not ROCM)
         try:
@@ -188,16 +202,28 @@ class ProbeHardwareManager():
                     gpu_info[f"GPU Load AMD {i}"] =  f"{str(gpu_load)}%" if gpu_load>=0 else defaultHardwareEmptyMessage
                     there_is_gpu = True
                     gpu_type="AMD"
-
-                
         except (ValueError,Exception) as e:
             logger.warning(f"Encountered an error recognising AMD GPU/s. Maybe there aren't AMD device/s or you have some missing dependencies.\nThe specific error is: {e}.")
 
-    def __checkNVIDIAGpuAvailability(self, gpu_info: dict, there_is_gpu: bool, gpu_type: str) -> None:
-        
+
+        return there_is_gpu, gpu_type
+
+    def __checkNVIDIAGpuAvailability(self, gpu_info: dict, there_is_gpu: bool, gpu_type: str) -> (bool,str):
+        """
+        Checks if there are available NVIDIA GPUs in the system. Requires CUDA drivers.
+
+        Input:
+            - gpu_info: dictionary
+            - there_is_gpu: bool value
+            - gpu_type: str value
+
+        Output: 
+            - there_is_gpu: bool
+            - gpu_type: str value
+        """
+
         #NVIDIA
         try:
-
             gpus = getGPUs()
 
             if len(gpus)>0:
@@ -212,17 +238,27 @@ class ProbeHardwareManager():
         except (ValueError,Exception) as e:
             logger.warning(f"Encountered an error recognising NVIDIA GPU/s. Maybe there aren't NVIDA device/s or you have some missing dependencies.\nThe specific error is: {e}.\n")
 
-        
+        return there_is_gpu, gpu_type
 
     def __retrieveGpuInfo(self) -> (bool, str):
-        #TODO after: If there is the GPU or not in device, call choose if download gpu packages or not.
+        """
+        Checks for GPU infos, calling the check dedicated functions.
+
+        Input:
+            None
+
+        Output: 
+            - there_is_gpu: bool
+            - gpu_type: str value
+        """
+
 
         gpu_info = {}
         there_is_gpu = False
         gpu_type = None
         
-        self.__checkNVIDIAGpuAvailability(gpu_info, there_is_gpu, gpu_type)
-        self.__checkAMDGpuAvailability(gpu_info, there_is_gpu, gpu_type)
+        there_is_gpu, gpu_type = self.__checkNVIDIAGpuAvailability(gpu_info, there_is_gpu, gpu_type)
+        there_is_gpu, gpu_type = self.__checkAMDGpuAvailability(gpu_info, there_is_gpu, gpu_type)
 
         if gpu_info:
             self.__printInformations(gpu_info, "GPU INFORMATIONS")
@@ -253,7 +289,7 @@ class ProbeHardwareManager():
 
     
 
-    def checkSystem(self):
+    def checkSystem(self) -> (bool, str):
         """
         Checks the system characteristics, thanks to utility functions, in order to see if the target device has a
         sufficient amount of resources to execute the tool.
@@ -265,16 +301,26 @@ class ProbeHardwareManager():
         self.__retrieveDiskUsage()
         there_is_gpu, gpu_type = self.__retrieveGpuInfo()
 
+
         if not there_is_gpu:
-            logger.info("GPU istances not found.\n")
-            
-        
+            logger.info("GPU INSTANCES NOT FOUND.\n")
+        else:
+            logger.info(f"GPU {gpu_type} FOUND!\n")
+
+        return there_is_gpu, gpu_type
+
 
 
 if __name__=="__main__":
     logger.info("PROBING HARDWARE RESOURCES...\n")
     probe = ProbeHardwareManager()
-    probe.checkSystem()
+    there_is_gpu, gpu_type = probe.checkSystem()
+
+    pdm = PackageDownloadManager()
+
+    pdm.checkDownloadedDependencies(there_is_gpu)
+
+
 
 
 
