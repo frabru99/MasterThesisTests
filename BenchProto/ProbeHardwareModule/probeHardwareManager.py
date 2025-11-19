@@ -4,10 +4,6 @@ config.dictConfig(TEST_LOGGING_CONFIG)
 logger = getLogger(__name__)
 
 
-<<<<<<< HEAD
-
-=======
->>>>>>> main
 from psutil import  cpu_count, cpu_percent, virtual_memory, disk_partitions, disk_usage
 from GPUtil import getGPUs
 #from amdsmi import init_amd_smi_lib, get_gpu_device_handles
@@ -19,7 +15,6 @@ from PackageDownloadModule.packageDownloadManager import PackageDownloadManager
 
 
 #TODO: Take some measurements in order to set the REAL thresholds.
-<<<<<<< HEAD
 default_hardware_empty_message="N.A."
 default_memory_total_threshold=4294967296 #Total Memory Required: 4Gb 
 default_memory_usage_threshold=2684354560 #Free Memory Required: 2.5Gb
@@ -27,15 +22,6 @@ default_disk_usage_threshold=2147483648 #Free Disk Required: 2Gb
 default_disk_total_threshold=6442450944 #Total Disk Required: 4Gb
 default_cpu_usage_threshold=70 #CPU Usage Threshold
 interval_cpu_usage=2 #interval for CPU Usage Check
-=======
-defaultHardwareEmptyMessage="N.A."
-defaultMemoryTotalThreshold=4294967296 #Total Memory Required: 4Gb 
-defaultMemoryUsageThreshold=2684354560 #Free Memory Required: 2.5Gb
-defaultDiskUsageThreshold=2147483648 #Free Disk Required: 2Gb 
-defaultDiskTotalThreshold=6442450944 #Total Disk Required: 4Gb
-defaultCpuUsageThreshold=70 #CPU Usage Threshold
-intervalCpuUsage=2 #interval for CPU Usage Check
->>>>>>> main
 VALID_CHOICES = {'y','n'} #Choices for CPU Usage
 
 
@@ -58,15 +44,9 @@ class ProbeHardwareManager():
             if isinstance(value, dict):
                 print(f"{key} ")
                 for value_keys, value_number in value.items():
-<<<<<<< HEAD
                     print(f"\t{value_keys}: {value_number if value_number else default_hardware_empty_message}")
                 continue
             print(f"{key}: {value if value else default_hardware_empty_message}")
-=======
-                    print(f"\t{value_keys}: {value_number if value_number else defaultHardwareEmptyMessage}")
-                continue
-            print(f"{key}: {value if value else defaultHardwareEmptyMessage}")
->>>>>>> main
 
         print("\n")
 
@@ -80,19 +60,11 @@ class ProbeHardwareManager():
         uname = self.__uname
         
         sysinfo = {
-<<<<<<< HEAD
             "System": uname.system if uname.system else default_hardware_empty_message,
             "Node name": uname.node if uname.node else default_hardware_empty_message,
             "Release": uname.release if uname.release else default_hardware_empty_message,
             "Version": uname.version if uname.version else default_hardware_empty_message,
             "Machine/Processor": uname.machine if uname.machine else default_hardware_empty_message,
-=======
-            "System": uname.system if uname.system else defaultHardwareEmptyMessage,
-            "Node name": uname.node if uname.node else defaultHardwareEmptyMessage,
-            "Release": uname.release if uname.release else defaultHardwareEmptyMessage,
-            "Version": uname.version if uname.version else defaultHardwareEmptyMessage,
-            "Machine/Processor": uname.machine if uname.machine else defaultHardwareEmptyMessage,
->>>>>>> main
         }
 
         self.__printInformations(sysinfo, "SYSTEM INFORMATIONS")
@@ -102,38 +74,23 @@ class ProbeHardwareManager():
     def __retrieveCpuUsage(self) -> None:
         """
         Retrieves CPU Usage informations and shows it on terminal. If the CPU Usage for the given interval (default 2s)
-<<<<<<< HEAD
         is Greater-Equal to default_cpu_usage_threshold it'll show a warning prompt in order to continue or stop the execution 
-=======
-        is Greater-Equal to defaultCpuUsageThreshold it'll show a warning prompt in order to continue or stop the execution 
->>>>>>> main
         of the tool. 
 
         """
         
         
         physical_cpus = cpu_count(logical=False)
-<<<<<<< HEAD
         cpu_usage = cpu_percent(percpu=False, interval=interval_cpu_usage)
 
         cpuinfo = {
             "Physical CPUs": physical_cpus if physical_cpus else default_hardware_empty_message,
-=======
-        cpu_usage = cpu_percent(percpu=False, interval=intervalCpuUsage)
-
-        cpuinfo = {
-            "Physical CPUs": physical_cpus if physical_cpus else defaultHardwareEmptyMessage,
->>>>>>> main
             "CPU Usage (%)": f"{cpu_usage}%"
         }
 
         self.__printInformations(cpuinfo, "CPU INFORMATIONS")
 
-<<<<<<< HEAD
         if cpu_usage >= default_cpu_usage_threshold:
-=======
-        if cpu_usage >= defaultCpuUsageThreshold:
->>>>>>> main
             while True:
                 choice = input(f"{cpu_usage} of CPU Usage detected. Do you want to continue? (y/n): ").lower()
 
@@ -169,7 +126,6 @@ class ProbeHardwareManager():
         self.__printInformations(memoryinfo, "MEMORY USAGE INFORMATIONS")
         
 
-<<<<<<< HEAD
         if mem_infos[0] <= default_memory_total_threshold:
             logger.error(f"The tools requires at least {self.__getHumanReadableValue(default_memory_total_threshold)} of Total Memory to run smoothly.")
             logger.info("EXITING...")
@@ -177,15 +133,6 @@ class ProbeHardwareManager():
 
         if mem_infos[1] <= default_memory_usage_threshold:
             logger.error(f"The tools requires at least {self.__getHumanReadableValue(default_memory_usage_threshold)} of Free Memory to run smoothly.")
-=======
-        if mem_infos[0] <= defaultMemoryTotalThreshold:
-            logger.error(f"The tools requires at least {self.__getHumanReadableValue(defaultMemoryTotalThreshold)} of Total Memory to run smoothly.")
-            logger.info("EXITING...")
-            exit(0)
-
-        if mem_infos[1] <= defaultMemoryUsageThreshold:
-            logger.error(f"The tools requires at least {self.__getHumanReadableValue(defaultMemoryUsageThreshold)} of Free Memory to run smoothly.")
->>>>>>> main
             logger.info("EXITING...")
             exit(0)
 
@@ -214,7 +161,6 @@ class ProbeHardwareManager():
     
         self.__printInformations(partitions_info, "DISK USAGE INFORMATIONS")
 
-<<<<<<< HEAD
         if disk_usage(partition.mountpoint).total <= default_disk_total_threshold:
             logger.error(f"The tools requires at least {self.__getHumanReadableValue(default_disk_total_threshold)} of Total Disk.")
             logger.info("EXITING...")
@@ -222,15 +168,6 @@ class ProbeHardwareManager():
 
         if  disk_usage(partition.mountpoint).free <= default_disk_usage_threshold:
             logger.error(f"The tools requires at least {self.__getHumanReadableValue(default_disk_usage_threshold)} of Free Disk.")
-=======
-        if disk_usage(partition.mountpoint).total <= defaultDiskTotalThreshold:
-            logger.error(f"The tools requires at least {self.__getHumanReadableValue(defaultDiskTotalThreshold)} of Total Disk.")
-            logger.info("EXITING...")
-            exit(0)
-
-        if  disk_usage(partition.mountpoint).free <= defaultDiskUsageThreshold:
-            logger.error(f"The tools requires at least {self.__getHumanReadableValue(defaultDiskUsageThreshold)} of Free Disk.")
->>>>>>> main
             logger.info("EXITING...")
             exit(0)
 
@@ -261,13 +198,8 @@ class ProbeHardwareManager():
 
 
                     gpu_info[f"AMD GPU {i} Name"] = gpu.name if gpu.name else f"GPU AMD {i}"
-<<<<<<< HEAD
                     gpu_info[f"VRAM Usage AMD {i}"] = vram_usage if vram_usage else default_hardware_empty_message
                     gpu_info[f"GPU Load AMD {i}"] =  f"{str(gpu_load)}%" if gpu_load>=0 else default_hardware_empty_message
-=======
-                    gpu_info[f"VRAM Usage AMD {i}"] = vram_usage if vram_usage else defaultHardwareEmptyMessage
-                    gpu_info[f"GPU Load AMD {i}"] =  f"{str(gpu_load)}%" if gpu_load>=0 else defaultHardwareEmptyMessage
->>>>>>> main
                     there_is_gpu = True
                     gpu_type="AMD"
         except (ValueError,Exception) as e:
@@ -297,13 +229,8 @@ class ProbeHardwareManager():
             if len(gpus)>0:
                 for i, gpu in enumerate(gpus):
                     gpu_info[f"NVIDIA GPU {i} Name"] = gpu.name if gpu.name else "NVIDIA GPU {i}"
-<<<<<<< HEAD
                     gpu_info[f"VRAM Usage NVIDIA {i}"] = gpu.memoryUsed if gpu.memoryUsed else default_hardware_empty_message
                     gpu_info[f"GPU Load NVIDIA {i}"]= gpu.load*100 if gpu.load>=0 else default_hardware_empty_message
-=======
-                    gpu_info[f"VRAM Usage NVIDIA {i}"] = gpu.memoryUsed if gpu.memoryUsed else defaultHardwareEmptyMessage
-                    gpu_info[f"GPU Load NVIDIA {i}"]= gpu.load*100 if gpu.load>=0 else defaultHardwareEmptyMessage
->>>>>>> main
 
                 there_is_gpu = True
                 gpu_type="NVIDIA"
