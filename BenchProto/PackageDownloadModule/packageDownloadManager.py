@@ -13,9 +13,9 @@ from importlib.metadata import distributions
 from time import sleep
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-requirementsFileNeededPath = str(PROJECT_ROOT / "PackageDownloadModule" / "requirementsFileDirectory" / "needed.txt" )
-requirementsFileGpuPath = str(PROJECT_ROOT / "PackageDownloadModule" / "requirementsFileDirectory" / "gpu.txt" )
-requirementsInstalledPath= str(PROJECT_ROOT / "PackageDownloadModule" / "requirementsFileDirectory" / ".installed.json" )
+requirements_file_needed_path = str(PROJECT_ROOT / "PackageDownloadModule" / "requirementsFileDirectory" / "needed.txt" )
+requirements_file_gpu_path = str(PROJECT_ROOT / "PackageDownloadModule" / "requirementsFileDirectory" / "gpu.txt" )
+requirements_installed_path= str(PROJECT_ROOT / "PackageDownloadModule" / "requirementsFileDirectory" / ".installed.json" )
 
 
 class PackageDownloadManager:
@@ -32,7 +32,7 @@ class PackageDownloadManager:
     #     needed = {}
     #     gpu = {}
 
-    #     path_files = [requirementsFileNeededPath, requirementsFileGpuPath]
+    #     path_files = [requirements_file_needed_path, requirements_file_gpu_path]
     #     try:
     #         for idx, path in enumerate(path_files):
     #             with open(path, "r") as file:
@@ -49,7 +49,7 @@ class PackageDownloadManager:
     #         return needed, gpu
                 
     #     except (FileNotFoundError, Exception) as e:
-    #         logger.error(f"Encountered an error retrieving the needed dependencies. Please check {requirementsFileNeededPath} file.\nThe specific error is: {e}")
+    #         logger.error(f"Encountered an error retrieving the needed dependencies. Please check {requirements_file_needed_path} file.\nThe specific error is: {e}")
     #         exit(0)
 
 
@@ -70,8 +70,8 @@ class PackageDownloadManager:
 
         requirementInstalled = {}
         try:
-            with open(requirementsInstalledPath, "r") as installedRequirements:
-                requirementInstalled = load(installedRequirements)
+            with open(requirements_installed_path, "r") as installed_requirements:
+                requirementInstalled = load(installed_requirements)
 
             install_needed = not requirementInstalled.get("needed", False)
             install_gpu = there_is_gpu and not requirementInstalled.get("gpu", False)
@@ -79,7 +79,7 @@ class PackageDownloadManager:
             return install_needed, install_gpu
             
         except decoder.JSONDecodeError as e:
-            logger.error(f"Encountered an error decoding the JSON file at path {requirementsInstalledPath}. It shouldn't be empty!\nThe specific error is: {e}")
+            logger.error(f"Encountered an error decoding the JSON file at path {requirements_installed_path}. It shouldn't be empty!\nThe specific error is: {e}")
             logger.info(f"Installing only basic dependencies...")
             return True, False
 
@@ -100,11 +100,11 @@ class PackageDownloadManager:
         
         """
 
-        installedRequirementsDict={}
+        installed_requirements_dict={}
 
         try:
-            with open(requirementsInstalledPath, "r") as installedRequirementsFile:
-                installedRequirementsDict = load(installedRequirementsFile)
+            with open(requirements_installed_path, "r") as installed_requirements_file:
+                installed_requirements_dict = load(installed_requirements_file)
 
 
             installNeeded, installGpu = self.__checkAlreadyInstalled(there_is_gpu)
@@ -112,8 +112,8 @@ class PackageDownloadManager:
             if installNeeded:
                 logger.info(f"INSTALLING NEEDED DEPENDENCIES...\n")
                 sleep(1)
-                check_call([executable, '-m', 'pip', 'install', '-r', requirementsFileNeededPath, '--force-reinstall'])
-                installedRequirementsDict["needed"] = True
+                check_call([executable, '-m', 'pip', 'install', '-r', requirements_file_needed_path, '--force-reinstall'])
+                installed_requirements_dict["needed"] = True
             else:
                 logger.info(f"NEEDED DEPENDENCIES ALREADY PRESENT...\n")
 
@@ -121,20 +121,20 @@ class PackageDownloadManager:
             if installGpu:
                 logger.info(f"INSTALLING GPU DEPENDENCIES...\n")
                 sleep(1)
-                check_call([executable, '-m', 'pip', 'install', '-r', requirementsFileGpuPath, '--force-reinstall'])
-                installedRequirementsDict["gpu"] = True
+                check_call([executable, '-m', 'pip', 'install', '-r', requirements_file_gpu_path, '--force-reinstall'])
+                installed_requirements_dict["gpu"] = True
             else:
                 logger.info(f"GPU DEPENDENCIES ALREADY PRESENT OR NOT NEEDED...\n")
 
-            if installedRequirementsDict and (installNeeded or installGpu):
-                with open(requirementsInstalledPath, "w") as installedRequirementsFile:
-                    dump(installedRequirementsDict, installedRequirementsFile, indent=4)
+            if installed_requirements_dict and (installNeeded or installGpu):
+                with open(requirements_installed_path, "w") as installed_requirements_file:
+                    dump(installed_requirements_dict, installed_requirements_file, indent=4)
                 
             logger.info("ALL DEPENDENCIES INSTALLED! IF THERE ARE PROBLEMS, WE SUGGEST TO FORCE-REINSTALL THE DEPENDENCIES.\n")
 
 
         except decoder.JSONDecodeError as e:
-            logger.error(f"Encountered an error Decoding the JSON file at path {requirementsInstalledPath}. It shouldn't be empty!\nThe specific error is: {e}")
+            logger.error(f"Encountered an error Decoding the JSON file at path {requirements_installed_path}. It shouldn't be empty!\nThe specific error is: {e}")
             exit(0)
         except (FileNotFoundError,Exception) as e:
             logger.error(f"Encountered a generic error checking the already installed dependencies.\nThe specific error is: {e}")

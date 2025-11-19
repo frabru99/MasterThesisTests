@@ -78,19 +78,24 @@
         "properties": {
             "Quantization": {
                 "description": "Quantization level object", 
-                "type": "string"
+                "type": "object",
+                "properties": {
+                    "method": {"type": "string"},
+                    "type": {"enum": ["static", "dynamic"]}
+                }
             }, 
             "Pruning": {
                 "description": "Pruning level object", 
-                "type": "string"
-            }
-        },
-        "dependentSchemas":{
-            "Pruning":{
+                "type": "object",
                 "properties":{
-                    "amount": {"type": "number"}
-                },
-                "required":["amount"]
+                    "method": {"type": "string"},
+                    "amount": {
+                        "type": "number",
+                        "exclusiveMinimum": 0,
+                        "maximum": 1
+                    }
+                    
+                }
             }
         },
         "minItems": 1
@@ -99,9 +104,9 @@
     "dataset": {
         "description": "The path to the dataset",
         "type": "object",
-        "required": ["dataset_path","batch_size"],
+        "required": ["data_dir","batch_size"],
         "properties":{
-            "dataset_path":{
+            "data_dir":{
                 "description": "The inference dataset's path.",
                 "type": "string", 
                 "format": "path"
