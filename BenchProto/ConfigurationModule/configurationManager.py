@@ -14,7 +14,6 @@ from pathlib import Path
 from hashlib import sha224
 
 
-
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 configPath=str(PROJECT_ROOT / "ConfigurationModule" / "ConfigFiles" / "config.json") #config file path
 configSchemaPath=str(PROJECT_ROOT / "ConfigurationModule" / "ConfigFiles" / "configScheme.json") #configSchema file path

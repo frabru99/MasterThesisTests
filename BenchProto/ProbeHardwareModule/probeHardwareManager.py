@@ -224,7 +224,6 @@ class ProbeHardwareManager():
 
         #NVIDIA
         try:
-
             gpus = getGPUs()
 
             if len(gpus)>0:
