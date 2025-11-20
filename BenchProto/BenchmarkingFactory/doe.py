@@ -17,10 +17,6 @@ import BenchmarkingFactory.optimization as optimization
 import BenchmarkingFactory.dataWrapper as datawrapper
 from ConfigurationModule.configurationManager import optimizations_library_path, ConfigManager
 
-
-
-
-
 class DoE():
     _instance = None #for Singleton
 
@@ -42,8 +38,9 @@ class DoE():
 
 
     def __init__(self, config: dict, config_id: str):
-        if not hasattr(self, "initialized"):
-            self.initialized=True #After that the first object is initialized, we'll not initialize another one. 
+        if not hasattr(self, "created"):
+            self.created=True #After that the first object is initialized, we'll not initialize another one. 
+            self.__initialized=False
             self.__config_id = config_id
             self.__model_info=config["models"]
             self.__optimizations_info=config["optimizations"]
@@ -51,6 +48,7 @@ class DoE():
             self.__models=self.__initializeListOfModels(config["models"])
             self.__optimizations=self.__initializeListOfOptimizations(config["optimizations"])
             self.__dataset=self.__initializeDataset()
+            self.__inference_loaders={}
         #metrics?
 
     def __initializeListOfModels(self, models: list) -> list:
@@ -123,16 +121,57 @@ class DoE():
 
         dataset_wrapper = datawrapper.DataWrapper()
 
-        #dataset_wrapper.loadInferenceData(dataset, self.__model_info[0])
-
         return dataset_wrapper
+
+
+    def initializeDoE(self):
+        """
+            This function initializes DoE, applying optimizations to the models 
+            and loading the dataset.
+
+            Input:
+                - None
+
+            Output:
+                - None
+        """
+
+        optimized_models = []
+        
+
+        for model in self.__models: #Iterating the base models. 
+            dataset = datawrapper.DataWrapper() #creating the dedicated dataWrapper for the model
+            dataset.loadInferenceData(model_info=model.getAllInfo(), dataset_info=self.__dataset_info)
+            inference_loader = dataset.getLoader()
+            self.__inference_loaders[model.getInfo("model_name")]=inference_loader #N Base Models = N Loaders
+            model.createOnnxModel(inference_loader)
+
+            #Optimized Model...
+            for optimizator in self.__optimizations:
+                optimizator.setAIModel(model)
+                optimized_model = optimizator.applyOptimization()
+                optimized_model.createOnnxModel(inference_loader)
+                optimized_models.append(optimized_model)
+                self.__inference_loaders[optimized_model.getInfo("model_name")] = inference_loader
+
+        self.__models.extend(optimized_models)
+        self.__initialized=True
+
+
+
      
 
-    def run():
-        pass
+    def run(self):
+        assert self.__initialized, "The DoE should be initialized in order to run."
 
+       
 
-
+        for model in self.__models:
+            #for inferece_loader_name, inferece_loader in self.__inference_loaders.items():
+            inference_loader = self.__inference_loaders[model.getInfo("model_name")]
+            print(f"MODEL NAME: {model.getInfo('model_name')} - INFERENCE LOADER {inference_loader}")
+            model.runInference(inference_loader)
+                    
 
 
 
@@ -174,20 +213,24 @@ if __name__ == "__main__":
         "optimizations": {
             "Pruning": {
                 "method": "L1Unstructured",
-                "amount": 0.7
+                "amount": 0.6
             }
         },
         "dataset": {
-            "data_dir": "ModelData/Dataset/dataset_name",
+            "data_dir": "ModelData/Dataset/casting_data",
             "batch_size": 32
         }
     }
 
-    cm = ConfigManager()
+    cm = ConfigManager(there_is_gpu=False, arch="x86")
 
     config_id = cm.createConfigFile(config)
 
     doe = DoE(config, config_id)
+
+    doe.initializeDoE()
+    doe.run()
+
 
 
     #doe.getString()

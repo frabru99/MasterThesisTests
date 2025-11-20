@@ -130,7 +130,7 @@ class PackageDownloadManager:
                 with open(requirements_installed_path, "w") as installed_requirements_file:
                     dump(installed_requirements_dict, installed_requirements_file, indent=4)
                 
-            logger.info("ALL DEPENDENCIES INSTALLED! IF THERE ARE PROBLEMS, WE SUGGEST TO FORCE-REINSTALL THE DEPENDENCIES.\n")
+            logger.info("ALL DEPENDENCIES INSTALLED! IF THERE ARE PROBLEMS, MAKE A FORCE-REINSTALL OF THE DEPENDENCIES WITHOUT CACHING.\n")
 
 
         except decoder.JSONDecodeError as e:

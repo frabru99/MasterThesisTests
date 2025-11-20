@@ -47,6 +47,8 @@ class AIModel():
         self.model_info = model_info
         self.model = self._loadModel(model_info['module'], model_info['class_name'])
 
+    def getAllInfo(self):
+        return self.model_info
 
     def getInfo(self, info_name: str):
 

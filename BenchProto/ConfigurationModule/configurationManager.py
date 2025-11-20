@@ -22,9 +22,9 @@ config_history_path=str(PROJECT_ROOT / "ConfigurationModule" / "ConfigFiles" / "
 models_library_path= str(PROJECT_ROOT / "ConfigurationModule" / "ConfigFiles" / "models_library.json") #models_library file path
 optimizations_library_path = str(PROJECT_ROOT / "ConfigurationModule" / "ConfigFiles" / "optimizations_library.json") #optimizations_library file path
 VALID_CHOICES = {'y','n'} #Choices for CPU Usage
+OPTIMIZATIONS_NEED_ARCH = {"Quantization"} #Optimizations that needs the arch type of the system.
 
 error_dataset_path_message =""" 
-BenchProto/
 ├── ModelData/
 │   └── Dataset/
 │       └── dataset_name/
@@ -38,7 +38,7 @@ BenchProto/
 
 class ConfigManager:
 
-    def __init__(self, schema_path=config_schema_path):
+    def __init__(self, arch, there_is_gpu, schema_path=config_schema_path):
         """
         Creates the ConfigManger object, loading the JSON Schema which the configuration have
         to be complaiant with.
@@ -47,6 +47,8 @@ class ConfigManager:
         try:
             with open(schema_path, "r") as config_schema_file:
                 self.__schema = load(config_schema_file)
+            self.__arch = arch
+            self.__there_is_gpu = there_is_gpu
         except (FileNotFoundError, Exception) as e:
             logger.error(f"Encountered a problem loading the config schema file.\nThe specific error is: {e}.")
 
@@ -68,7 +70,7 @@ class ConfigManager:
     
     def __checkModels(self, models: list) -> bool:
         """
-        Checks the availability of models wrote in config file. 
+        Checks the availability of models wrote in config file and applies the needed changes.
 
         Input: 
             - models: the list of chosen models from the configuration file.
@@ -80,12 +82,12 @@ class ConfigManager:
             changed=False
             idx_to_del=[]
 
-            # try:
-            with open(models_library_path, "r") as models_library_file:
-                models_library = load(models_library_file)
-            # except (FileNotFoundError, Exception) as e:
-            #     logger.error(f"The library file was not found or not loaded in the correct way.\nThe specific error is {e}.")
-            #     return False
+            try:
+                with open(models_library_path, "r") as models_library_file:
+                    models_library = load(models_library_file)
+            except (FileNotFoundError, Exception) as e:
+                logger.error(f"The library file was not found or not loaded in the correct way.\nThe specific error is {e}.")
+                return False
 
 
             #make a set of value in order to improve the performance in searching.
@@ -116,6 +118,9 @@ class ConfigManager:
                         logger.error(f"There are no weights file for {model['model_name']}. Try to provide it in ./ModelData/Weights/ dir or check the weights path in config files.\n")
                         return False
 
+                if models[idx]['device'] == "gpu" and not self.__there_is_gpu:
+                    logger.warning(f"THE GPU IS NOT PRESENT, CHANGING THE DEVICE TO 'CPU' for {model['model_name']}...")
+                    models[idx]['device'] = "cpu"
 
             if changed:
 
@@ -282,6 +287,7 @@ class ConfigManager:
             -path: path of the configuration file. It should be a JSON file. 
         Output: 
             -config: the dict that contains the configuration. 
+            -hash_value: the hash value generated on config file
         """
 
         config = ""
@@ -309,11 +315,18 @@ class ConfigManager:
             self.__printConfigFile(config, " FINAL CONF. FILE ")
             hash_value = sha224(str(config).encode("utf-8")).hexdigest()
             self.__updateConfigHistory(config, hash_value)
+            #Arch for Quantization Optimization
+            self.__addArchType(config)
             return config, hash_value
         else:
             logger.info(f"EXITING...\n")
             return None, None
 
+    def __addArchType(self, config: dict):
+
+        for optimization in OPTIMIZATIONS_NEED_ARCH:
+                if optimization in config["optimizations"]:
+                    config["optimizations"][optimization]["arch"] = self.__arch
 
     
     def createConfigFile(self, config: dict) -> str:
@@ -350,6 +363,7 @@ class ConfigManager:
 
             hash_value = sha224(str(config).encode("utf-8")).hexdigest()
             self.__updateConfigHistory(config, hash_value)
+            self.__addArchType(config)
             return hash_value
         else:
             logger.info(f"EXITING...\n")
@@ -401,6 +415,7 @@ if __name__ == "__main__":
     #configFile, hash_value = configManager.loadConfigFile()
 
     hash_value = configManager.createConfigFile(configTest)
+
 
 
 

@@ -1,7 +1,76 @@
-2025-11-19 17:10:51,305 [INFO] __main__: CREATING THE mobilenet_v2 MODEL...
+2025-11-20 16:13:15,472 [INFO] ConfigurationModule.configurationManager: VALIDATING CREATED CONFIGURATON...
+2025-11-20 16:13:15,490 [INFO] ConfigurationModule.configurationManager: CONFIGURATION FILE CORRECTLY VALIDATED! 
 
-2025-11-19 17:10:51,384 [INFO] __main__: CREATING THE efficientnet MODEL...
+2025-11-20 16:13:15,490 [INFO] ConfigurationModule.configurationManager: CHECKING CONFIG FOR CUSTOM mobilenet_v2 MODEL...
+2025-11-20 16:13:15,490 [INFO] ConfigurationModule.configurationManager: CHECKING CONFIG WEIGHT PATH FILE FOR mobilenet_v2...
+2025-11-20 16:13:15,490 [INFO] ConfigurationModule.configurationManager: CHECKING CONFIG FOR CUSTOM efficientnet MODEL...
+2025-11-20 16:13:15,490 [INFO] ConfigurationModule.configurationManager: CHECKING CONFIG WEIGHT PATH FILE FOR efficientnet...
+2025-11-20 16:13:15,491 [INFO] ConfigurationModule.configurationManager: CONFIGURATION NOT CHANGED...
+2025-11-20 16:13:15,517 [INFO] ConfigurationModule.configurationManager: CHECKING DATASET PATH...
+2025-11-20 16:13:15,517 [INFO] ConfigurationModule.configurationManager: DATASET PATH RECOGNISED!
+2025-11-20 16:13:15,518 [INFO] ConfigurationModule.configurationManager: CHECKING OPTIMIZATION METHODS...
+2025-11-20 16:13:15,518 [INFO] ConfigurationModule.configurationManager: OPTIMIZATION Pruning - L1Unstructured RECOGNISED!
+2025-11-20 16:13:15,519 [INFO] ConfigurationModule.configurationManager: DONE!
+2025-11-20 16:13:15,525 [INFO] ConfigurationModule.configurationManager: SAVING IT INTO /home/frabru99/Sync/MasterThesisTests/BenchProto/ConfigurationModule/ConfigFiles/config.json...
+2025-11-20 16:13:15,526 [INFO] ConfigurationModule.configurationManager: SAVED!
+2025-11-20 16:13:19,198 [INFO] __main__: CREATING THE mobilenet_v2 MODEL...
 
-2025-11-19 17:10:51,483 [INFO] __main__: MODELS CREATED!
+2025-11-20 16:13:19,316 [INFO] BenchmarkingFactory.aiModel: MODEL LOADED CORRECTLY: mobilenet_v2
+2025-11-20 16:13:19,317 [INFO] __main__: CREATING THE efficientnet MODEL...
 
-2025-11-19 17:10:51,483 [INFO] __main__: PruningOptimization ADDED!
+2025-11-20 16:13:19,494 [INFO] BenchmarkingFactory.aiModel: MODEL LOADED CORRECTLY: efficientnet_b0
+2025-11-20 16:13:19,495 [INFO] __main__: MODELS CREATED!
+
+2025-11-20 16:13:19,495 [INFO] __main__: PruningOptimization ADDED!
+2025-11-20 16:13:19,499 [INFO] BenchmarkingFactory.dataWrapper: Data loaded and setted on mobilenet_v2. Classes found: ['def_front', 'ok_front']
+2025-11-20 16:13:31,776 [INFO] BenchmarkingFactory.aiModel: MODEL LOADED CORRECTLY: mobilenet_v2
+2025-11-20 16:13:31,777 [INFO] BenchmarkingFactory.optimization: Amount:0.6
+2025-11-20 16:13:31,777 [INFO] BenchmarkingFactory.optimization: Method:<class 'torch.nn.utils.prune.L1Unstructured'>
+2025-11-20 16:13:41,356 [INFO] BenchmarkingFactory.dataWrapper: Data loaded and setted on efficientnet. Classes found: ['def_front', 'ok_front']
+2025-11-20 16:13:49,907 [INFO] BenchmarkingFactory.aiModel: MODEL LOADED CORRECTLY: efficientnet_b0
+2025-11-20 16:13:49,910 [INFO] BenchmarkingFactory.optimization: Amount:0.6
+2025-11-20 16:13:49,910 [INFO] BenchmarkingFactory.optimization: Method:<class 'torch.nn.utils.prune.L1Unstructured'>
+2025-11-20 16:14:07,108 [INFO] BenchmarkingFactory.aiModel: ### RESULTS OF INFERENCE TEST ###
+2025-11-20 16:14:07,108 [INFO] BenchmarkingFactory.aiModel: inference_event_path: mobilenet_v2_2025-11-20_16-13-59.json
+2025-11-20 16:14:07,108 [INFO] BenchmarkingFactory.aiModel: total_pure_kernel_time_ms: 3950.89
+2025-11-20 16:14:07,108 [INFO] BenchmarkingFactory.aiModel: avg_kernel_time_per_batch_ms: 171.78
+2025-11-20 16:14:07,108 [INFO] BenchmarkingFactory.aiModel: avg_kernel_time_per_image_ms: 5.53
+2025-11-20 16:14:07,109 [INFO] BenchmarkingFactory.aiModel: total_model_run_time_ms: 3982.85
+2025-11-20 16:14:07,109 [INFO] BenchmarkingFactory.aiModel: avg_model_run_time_per_batch_ms: 173.17
+2025-11-20 16:14:07,109 [INFO] BenchmarkingFactory.aiModel: avg_model_run_time_per_image_ms: 5.57
+2025-11-20 16:14:07,109 [INFO] BenchmarkingFactory.aiModel: total_nodes_executed: 4002
+2025-11-20 16:14:07,109 [INFO] BenchmarkingFactory.aiModel: p95_node_latency_ms: 5.16
+2025-11-20 16:14:07,109 [INFO] BenchmarkingFactory.aiModel: accuracy: 87.97
+2025-11-20 16:14:22,496 [INFO] BenchmarkingFactory.aiModel: ### RESULTS OF INFERENCE TEST ###
+2025-11-20 16:14:22,497 [INFO] BenchmarkingFactory.aiModel: inference_event_path: efficientnet_2025-11-20_16-14-07.json
+2025-11-20 16:14:22,497 [INFO] BenchmarkingFactory.aiModel: total_pure_kernel_time_ms: 10832.33
+2025-11-20 16:14:22,497 [INFO] BenchmarkingFactory.aiModel: avg_kernel_time_per_batch_ms: 470.97
+2025-11-20 16:14:22,497 [INFO] BenchmarkingFactory.aiModel: avg_kernel_time_per_image_ms: 15.15
+2025-11-20 16:14:22,497 [INFO] BenchmarkingFactory.aiModel: total_model_run_time_ms: 10987.00
+2025-11-20 16:14:22,497 [INFO] BenchmarkingFactory.aiModel: avg_model_run_time_per_batch_ms: 477.70
+2025-11-20 16:14:22,497 [INFO] BenchmarkingFactory.aiModel: avg_model_run_time_per_image_ms: 15.37
+2025-11-20 16:14:22,497 [INFO] BenchmarkingFactory.aiModel: total_nodes_executed: 19941
+2025-11-20 16:14:22,497 [INFO] BenchmarkingFactory.aiModel: p95_node_latency_ms: 3.92
+2025-11-20 16:14:22,497 [INFO] BenchmarkingFactory.aiModel: accuracy: 96.08
+2025-11-20 16:14:31,860 [INFO] BenchmarkingFactory.aiModel: ### RESULTS OF INFERENCE TEST ###
+2025-11-20 16:14:31,860 [INFO] BenchmarkingFactory.aiModel: inference_event_path: mobilenet_v2_pruned_2025-11-20_16-14-22.json
+2025-11-20 16:14:31,860 [INFO] BenchmarkingFactory.aiModel: total_pure_kernel_time_ms: 4566.83
+2025-11-20 16:14:31,861 [INFO] BenchmarkingFactory.aiModel: avg_kernel_time_per_batch_ms: 198.56
+2025-11-20 16:14:31,861 [INFO] BenchmarkingFactory.aiModel: avg_kernel_time_per_image_ms: 6.39
+2025-11-20 16:14:31,861 [INFO] BenchmarkingFactory.aiModel: total_model_run_time_ms: 4608.82
+2025-11-20 16:14:31,861 [INFO] BenchmarkingFactory.aiModel: avg_model_run_time_per_batch_ms: 200.38
+2025-11-20 16:14:31,861 [INFO] BenchmarkingFactory.aiModel: avg_model_run_time_per_image_ms: 6.45
+2025-11-20 16:14:31,861 [INFO] BenchmarkingFactory.aiModel: total_nodes_executed: 4002
+2025-11-20 16:14:31,861 [INFO] BenchmarkingFactory.aiModel: p95_node_latency_ms: 6.19
+2025-11-20 16:14:31,861 [INFO] BenchmarkingFactory.aiModel: accuracy: 60.14
+2025-11-20 16:14:48,141 [INFO] BenchmarkingFactory.aiModel: ### RESULTS OF INFERENCE TEST ###
+2025-11-20 16:14:48,141 [INFO] BenchmarkingFactory.aiModel: inference_event_path: efficientnet_pruned_2025-11-20_16-14-31.json
+2025-11-20 16:14:48,141 [INFO] BenchmarkingFactory.aiModel: total_pure_kernel_time_ms: 11505.25
+2025-11-20 16:14:48,141 [INFO] BenchmarkingFactory.aiModel: avg_kernel_time_per_batch_ms: 500.23
+2025-11-20 16:14:48,141 [INFO] BenchmarkingFactory.aiModel: avg_kernel_time_per_image_ms: 16.09
+2025-11-20 16:14:48,141 [INFO] BenchmarkingFactory.aiModel: total_model_run_time_ms: 11677.33
+2025-11-20 16:14:48,141 [INFO] BenchmarkingFactory.aiModel: avg_model_run_time_per_batch_ms: 507.71
+2025-11-20 16:14:48,141 [INFO] BenchmarkingFactory.aiModel: avg_model_run_time_per_image_ms: 16.33
+2025-11-20 16:14:48,141 [INFO] BenchmarkingFactory.aiModel: total_nodes_executed: 19941
+2025-11-20 16:14:48,141 [INFO] BenchmarkingFactory.aiModel: p95_node_latency_ms: 4.17
+2025-11-20 16:14:48,141 [INFO] BenchmarkingFactory.aiModel: accuracy: 46.57

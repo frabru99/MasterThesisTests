@@ -84,7 +84,7 @@ class PruningOptimization(Optimization):
             prune.remove(module, param_name)
 
         pruned_aimodel.model_info['model_name'] += "_pruned"
-        pruned_aimodel.model_info['description'] += f"(Pruned with {self.getOptimizationInfo('Pruning')} with amount {self.getOptimizationInfo('amount')})"
+        pruned_aimodel.model_info['description'] += f"(Pruned with {self.getOptimizationInfo('method')} with amount {self.getOptimizationInfo('amount')})"
         logger.debug(f"<----- [OPTIMIZATION MODULE] APPLY OPTIMIZATION")
 
         return pruned_aimodel
@@ -145,12 +145,8 @@ class PruningOptimization(Optimization):
         Function that get the right pruning method form prune.BasePruningMethods
         """
 
-        pruning_method = self.getOptimizationInfo('Pruning')
-        class_methods = ["RandomUnstructured", "L1Unstructured", "L2Unstructured"]
+        pruning_method = self.getOptimizationInfo('method')
         
-        if pruning_method not in class_methods:
-            logger.error(f"Pruning method {pruning_method} not supported, fall back on RandomPruning")
-            return prune.RandomUnstructured
         class_method = getattr(prune, pruning_method)
 
         if class_method is None:
