@@ -44,15 +44,15 @@ class AIModel():
             }
         """
 
-        self.model_info = model_info
-        self.model = self._loadModel(model_info['module'], model_info['class_name'])
+        self.__model_info = model_info
+        self.__model = self._loadModel(model_info['module'], model_info['class_name'])
 
     def getAllInfo(self):
-        return self.model_info
+        return self.__model_info
 
     def getInfo(self, info_name: str):
 
-        return self.model_info[info_name]
+        return self.__model_info[info_name]
 
     def _replaceModelClassifier(self, model, class_name):
         """
@@ -146,9 +146,9 @@ class AIModel():
             logger.info(f"MODEL LOADED CORRECTLY: {class_name}")
 
         except FileNotFoundError:
-            logger.error(f"Weight file not found at {self.model_info['weights_path']}. Model has random weights.")
+            logger.error(f"Weight file not found at {self.getInfo('weights_path')}. Model has random weights.")
         except Exception as e:
-            logger.error(f"Error loading model weights from {self.model_info['weights_path']}: {e}")
+            logger.error(f"Error loading model weights from {self.getInfo('weights_path')}: {e}")
 
         logger.debug(f"<----- [AIMODEL MODULE] LOAD MODEL\n")
 
@@ -198,12 +198,22 @@ class AIModel():
 
         return final_provider_list
 
+    def setModel(self, model):
+        """
+        Set new model to the AIModel
+
+        Input:
+            - model: new Pytorch nn module 
+        """
+
+        self.__model = model
+
     def getModel(self):
         """
         Returns the torch model attached to aimodel
         """
 
-        return self.model
+        return self.__model
 
     def createOnnxModel(self, input_data):
         """
@@ -212,35 +222,57 @@ class AIModel():
 
         logger.debug(f"-----> [AIMODEL MODULE] CREATE ONNX MODEL")
 
-        device = self.getInfo('device')
-        self.model.to(device)
-        self.model.eval()
-
-        batch_dim = torch.export.Dim("batch_size")
-
-        image_size = self.getInfo('image_size')
-
-        dummy_input, _ = next(iter(input_data))
-        dummy_input = dummy_input.to(device)
 
         model_name = self.getInfo('model_name')
         onnx_model_path = PROJECT_ROOT / "ModelData" / "ONNXModels" / f"{model_name}.onnx"
+        
+        if onnx_model_path.exists():
+            logger.info(f"ONNX file of {model_name} already exists at {onnx_model_path}")
+            #return TO PASS THE CREATION IF IT ALREADY EXISTS 
 
-        dynamic_shapes_config = {
-            "x": {0: batch_dim}
+        # Getting parameters
+        onnx_model_path = str(onnx_model_path)
+        device = self.getInfo('device')
+        image_size = self.getInfo('image_size')
+
+        self.getModel().to(device)
+        self.getModel().eval()
+
+        dummy_input = None
+
+        try:
+            inputs, _ = next(iter(input_data))
+
+            dummy_input = inputs[0:1].to(device)
+            logger.debug("Generated dummy input from real dataset (sliced to batch size 1)")
+
+        except (StopIteration, TypeError, AttributeError):
+            logger.warning("Could not fetch data from loader. Generating random dummy input.")
+            dummy_input = torch.randn(1, 3, image_size, image_size).to(device)
+
+        # Dynamic axes config (Standard exporter)
+        dynamic_axes_config = {
+            'input': {0: 'batch_size'},
+            'output': {0: 'batch_size'}
         }
 
-        torch.onnx.export(
-            self.model,
-            dummy_input,
-            onnx_model_path,
-            export_params=True,
-            opset_version=18,
-            do_constant_folding = True,
-            input_names = ['input'],
-            output_names = ['output'],
-            dynamic_shapes = dynamic_shapes_config
-        )
+        try:
+            torch.onnx.export(
+                self.getModel(),
+                dummy_input,
+                onnx_model_path,
+                export_params=True,
+                opset_version=13,
+                do_constant_folding = True,
+                input_names = ['input'],
+                output_names = ['output'],
+                dynamic_axes = dynamic_axes_config,
+                dynamo = False
+            )
+            logger.info(f"ONNX Model successfully created at {onnx_model_path}")
+        except Exception as e:
+            logger.error(f"Failed to export ONNX model: {e}")
+
         logger.debug(f"<----- [AIMODEL MODULE] CREATE ONNX MODEL\n")
 
     def runInference(self, input_data) -> str:
@@ -260,7 +292,7 @@ class AIModel():
         model_name = self.getInfo('model_name')
         onnx_model_path = PROJECT_ROOT / "ModelData" / "ONNXModels"  /  f"{model_name}.onnx"
 
-        provider_list = self._getProviderList(self.model_info['device'])
+        provider_list = self._getProviderList(self.getInfo('device'))
         device_name = "cuda" if device_str == "gpu" else "cpu"
 
         try:
@@ -513,7 +545,7 @@ if __name__ == "__main__":
 
     }
 
-    data_dir = str(PROJECT_ROOT / "ModelData" / "Dataset" / "casting_data")
+    data_dir = "ModelData/Dataset/casting_data"
 
     dataset_info = {
         'data_dir': data_dir,
