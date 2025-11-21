@@ -32,7 +32,7 @@ TEST_LOGGING_CONFIG = {
         
         # 1. Your code's logger
         'BenchmarkingFactory': {
-            'level': 'DEBUG',
+            'level': 'INFO',
             'handlers': ['console', 'test_file'],
             'propagate': False 
         },
@@ -50,31 +50,31 @@ TEST_LOGGING_CONFIG = {
         },
 
         'BenchmarkingFactory.aiModel': {
-        'level': 'ERROR',
+        'level': 'INFO',
         'handlers': ['console', 'test_file'],
         'propagate': False
         },
 
         'BenchmarkingFactory.doe': {
-        'level': 'ERROR',
+        'level': 'INFO',
         'handlers': ['console', 'test_file'],
         'propagate': False
         },
 
         'ConfigurationModule.configurationManager': {
-        'level': 'ERROR',
+        'level': 'INFO',
         'handlers': ['console', 'test_file'],
         'propagate': False
         },
 
         'ProbeHardwareModule.probeHardwareManager': {
-        'level': 'ERROR',
+        'level': 'INFO',
         'handlers': ['console', 'test_file'],
         'propagate': False
         },
 
         'PackageDownloadModule.packageDownloadManager': {
-        'level': 'ERROR',
+        'level': 'INFO',
         'handlers': ['console', 'test_file'],
         'propagate': False
         },

@@ -11,8 +11,9 @@ from pyamdgpuinfo import detect_gpus, get_gpu
 from platform import uname
 from rich.pretty import pprint
 
+#Tests
 from PackageDownloadModule.packageDownloadManager import PackageDownloadManager
-
+from ConfigurationModule.configurationManager import ConfigManager
 
 #TODO: Take some measurements in order to set the REAL thresholds.
 default_hardware_empty_message="N.A."
@@ -51,7 +52,7 @@ class ProbeHardwareManager():
         print("\n")
 
 
-    def __retrieveSysInfo(self) -> None:
+    def __retrieveSysInfo(self) -> str:
         """
         Retrieves system informations and shows it on terminal.
 
@@ -68,6 +69,18 @@ class ProbeHardwareManager():
         }
 
         self.__printInformations(sysinfo, "SYSTEM INFORMATIONS")
+
+        arch_info = ""
+
+        if sysinfo["Machine/Processor"].startswith("x86"):
+            arch_info="x86"
+        elif sysinfo["Machine/Processor"].startswith("aarch"):
+            arch_info="aarch"
+        else:
+            arch_info = ""
+
+
+        return arch_info
 
 
 
@@ -186,6 +199,8 @@ class ProbeHardwareManager():
             - gpu_type: str value
         """
 
+        #TODO: ROCM PROBE SUPPORT
+
         #AMD (not ROCM)
         try:
             amd_gpus = detect_gpus()
@@ -287,15 +302,14 @@ class ProbeHardwareManager():
                 return f"{value:.2f}{unit}{suffix}"
             value /= factor
 
-    
 
-    def checkSystem(self) -> (bool, str):
+    def checkSystem(self) -> (bool, str, str):
         """
         Checks the system characteristics, thanks to utility functions, in order to see if the target device has a
         sufficient amount of resources to execute the tool.
 
         """
-        self.__retrieveSysInfo()
+        sys_arch = self.__retrieveSysInfo()
         self.__retrieveCpuUsage()
         self.__retrieveMemoryUsage()
         self.__retrieveDiskUsage()
@@ -305,20 +319,69 @@ class ProbeHardwareManager():
         if not there_is_gpu:
             logger.info("GPU INSTANCES NOT FOUND.\n")
         else:
-            logger.info(f"GPU {gpu_type} FOUND!\n")
+            logger.info(f"GPU {gpu_type} FOUND! YOU CAN MAY HAVE SOME TROUBLES WITH THE EXECUTION. MAKE SURE THAT ALL THE DEPENDENCIES FOR GPU INFERENCING ARE INSTALLED AND SETTED.\n")
 
-        return there_is_gpu, gpu_type
+        return there_is_gpu, gpu_type, sys_arch
 
 
 
 if __name__=="__main__":
     logger.info("PROBING HARDWARE RESOURCES...\n")
     probe = ProbeHardwareManager()
-    there_is_gpu, gpu_type = probe.checkSystem()
+
+    there_is_gpu, gpu_type, sys_arch = probe.checkSystem()
+
 
     pdm = PackageDownloadManager()
 
     pdm.checkDownloadedDependencies(there_is_gpu)
+
+    cm = ConfigManager(sys_arch, there_is_gpu)
+
+
+    configTest = {
+        "models": [
+            {
+                "model_name": "mobilenet_v2", 
+                "native": True
+            },
+            {
+                "module": "torchvision.models",
+                "model_name": "efficientnet", 
+                "native": False,
+                "distilled": False,
+                "weights_path": "./ModelData/Weights/casting_efficientnet_b0.pth",
+                "device": "gpu",
+                "class_name": "efficientnet_b0",
+                "weights_class": "EfficientNet_B0_Weights", 
+                "image_size": 224,
+                "num_classes": 1000,
+                "task": "classification",
+                "description": "EfficientNet from Custom Models"
+            }
+        ],
+        "optimizations": {
+            "Quantization": {
+                "method": "QInt8",
+                "type":"static" 
+            },
+            "Pruning": {
+                "method": "L1Unstructured",
+                "amount": 0.7
+            }
+        },
+        "dataset": {
+            "data_dir": "./ModelData/Dataset/dataset_name",
+            "batch_size": 32
+        }
+    }
+
+    hash_val = cm.createConfigFile(configTest)
+
+
+
+
+
 
 
 

@@ -7,5 +7,3 @@ data/
 TestDatasets
 *.log
 BenchProto/ModelData/Dataset/*
-
-

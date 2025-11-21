@@ -154,11 +154,11 @@ class PruningOptimization(Optimization):
         """
 
         pruning_method = self.getOptimizationInfo('method')
+<<<<<<< HEAD
+=======
         class_methods = ["RandomUnstructured", "L1Unstructured", "L2Unstructured"]
+>>>>>>> main
         
-        if pruning_method not in class_methods:
-            logger.error(f"Pruning method {pruning_method} not supported, fall back on RandomPruning")
-            return prune.RandomUnstructured
         class_method = getattr(prune, pruning_method)
 
         if class_method is None:

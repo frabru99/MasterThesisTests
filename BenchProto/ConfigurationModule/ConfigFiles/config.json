@@ -32,11 +32,11 @@
     "optimizations": {
         "Pruning": {
             "method": "L1Unstructured",
-            "amount": 0.7
+            "amount": 0.6
         }
     },
     "dataset": {
-        "data_dir": "ModelData/Dataset/dataset_name",
+        "data_dir": "ModelData/Dataset/casting_data",
         "batch_size": 32
     }
 }

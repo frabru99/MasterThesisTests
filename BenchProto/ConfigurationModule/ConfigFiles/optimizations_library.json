@@ -1,5 +1,5 @@
 {
     "Quantization": ["QInt8", "8float", "16int", "16float"],
-    "Pruning": ["RandomUnstructured", "L1Unstructured", "L2Unstructured"]
+    "Pruning": ["RandomUnstructured", "L1Unstructured", "LnStructured"]
 }
 
