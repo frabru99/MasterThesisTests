@@ -14,7 +14,7 @@ from importlib import import_module
 from pathlib import Path
 from torchvision import models
 from BenchmarkingFactory.dataWrapper import DataWrapper
-
+from pymemtrace import cPyMemTrace
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
@@ -285,7 +285,7 @@ class AIModel():
         Outputs:
             - stats_path: Path of 
         """
-
+        
         logger.debug(f"-----> [AIMODEL MODULE] RUN INFERENCE")
 
         device_str = self.getInfo('device')
@@ -319,10 +319,11 @@ class AIModel():
 
         n_total_images = len(input_data.dataset)
         num_batches = len(input_data)
-        logger.debug(f"In this dataset there are {n_total_images} images across {num_batches} batches")
+        logger.info(f"In this dataset there are {n_total_images} images across {num_batches} batches")
         total = 0
         correct = 0
 
+    
         with torch.no_grad():
             for inputs, labels in input_data:
 
@@ -359,7 +360,8 @@ class AIModel():
                     )
 
                     # Run inference with binding options
-                    ort_session.run_with_iobinding(io_binding)
+                    with cPyMemTrace.Profile():
+                        ort_session.run_with_iobinding(io_binding)
 
                 elif device_name == "cpu":
 
@@ -379,7 +381,8 @@ class AIModel():
                     io_binding.bind_output(output_name, device_type = 'cpu',
                                             device_id=0)
 
-                    ort_session.run_with_iobinding(io_binding)
+                    with cPyMemTrace.Profile():
+                        ort_session.run_with_iobinding(io_binding)
 
                     # Get outputs and reconvert into torch tensors
                     onnx_outputs_ort = io_binding.get_outputs()

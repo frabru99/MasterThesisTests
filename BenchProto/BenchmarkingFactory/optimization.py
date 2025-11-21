@@ -154,10 +154,6 @@ class PruningOptimization(Optimization):
         """
 
         pruning_method = self.getOptimizationInfo('method')
-<<<<<<< HEAD
-=======
-        class_methods = ["RandomUnstructured", "L1Unstructured", "L2Unstructured"]
->>>>>>> main
         
         class_method = getattr(prune, pruning_method)
 
