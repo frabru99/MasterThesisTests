@@ -42,7 +42,7 @@ class DataWrapper():
         image_size = model_info['image_size']
 
         return transforms.Compose([
-            transforms.Resize(image_size + 32),
+            #transforms.Resize(image_size + 32),
             weights.transforms()
         ])
 
