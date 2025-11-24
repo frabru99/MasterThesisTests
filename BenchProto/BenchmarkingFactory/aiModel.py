@@ -319,12 +319,8 @@ class AIModel():
 
         n_total_images = len(input_data.dataset)
         num_batches = len(input_data)
-<<<<<<< HEAD
         logger.debug(f"In this dataset there are {n_total_images} images across {num_batches} batches")
         
-=======
-        logger.info(f"In this dataset there are {n_total_images} images across {num_batches} batches")
->>>>>>> frabru-branch
         total = 0
         correct = 0
         running_loss = 0
