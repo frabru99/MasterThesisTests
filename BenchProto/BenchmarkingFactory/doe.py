@@ -148,7 +148,7 @@ class DoE():
             #Optimized Model...
             for optimizator in self.__optimizations:
                 optimizator.setAIModel(model)
-                optimized_model = optimizator.applyOptimization()
+                optimized_model = optimizator.applyOptimization(inference_loader)
                 optimized_model.createOnnxModel(inference_loader)
                 optimized_models.append(optimized_model)
                 self.__inference_loaders[optimized_model.getInfo("model_name")] = inference_loader
@@ -211,8 +211,9 @@ if __name__ == "__main__":
         ],
         "optimizations": {
             "Pruning": {
-                "method": "L1Unstructured",
-                "amount": 0.6
+                "method": "Random",
+                "amount": 0.2,
+                "n": 2
             }
         },
         "dataset": {

@@ -64,7 +64,8 @@ class PruningOptimization(Optimization):
         method = self.getOptimizationInfo('method')
         device = self.current_aimodel.getInfo('device')
         amount = self.getOptimizationInfo('amount')
-        n = self.getOptimizationInfo('n')
+        if method != "Random":
+            n = self.getOptimizationInfo('n')
 
         try:
             batch = next(iter(input_loader))
@@ -103,7 +104,7 @@ class PruningOptimization(Optimization):
         # Check the result
         logger.debug(f"Model physically shrunk. New structure applied.")
 
-        logger.info(f"PRUNING APPLIED WITH {pruning_method}, on {amount*100}% of the nodes on {current_model_info['model_name']}")
+        logger.info(f"PRUNING APPLIED WITH {method}, on {amount*100}% of the nodes on {current_model_info['model_name']}")
 
         pruned_aimodel.getAllInfo()['model_name'] += "_pruned"
         pruned_aimodel.getAllInfo()['description'] += f"(Structurally Pruned amount {amount})"
@@ -126,7 +127,7 @@ class PruningOptimization(Optimization):
         if method == "Random":
             logger.info(f"Using Random Strategy for Pruning")
             imp = tp.importance.RandomImportance()
-        elif methdo == "LnStructured":
+        elif method == "LnStructured":
             logger.info(f"Using Ln Structuerd Strategy for Pruning")
             n = self.getOptimizationInfo('n')
             imp = tp.importance.MagnitudeImportance(p=n)
@@ -285,6 +286,16 @@ class QuantizationOptimization(Optimization):
             return True
         else:
             return False
+
+
+def printModels(model: object, model_name: str):
+
+    module_len = 0
+    for name,module in model.named_modules():
+        module_len += 1
+
+    print(f"{model_name}, LEN: {module_len}")
+
    
 class MissingAIModelError(Exception):
     """
@@ -350,6 +361,8 @@ if __name__ == "__main__":
     logger.debug(f"Inference with {efficientnet.getInfo('model_name')}, description: {efficientnet.getInfo('description')}")
     logger.debug(f"Test inference on casting product")
 
+    printModels(efficientnet.getModel(), efficientnet.getInfo('model_name'))
+
     # Attaching dataset to unpruned model
     dataset.loadInferenceData(model_info = efficientnet.getAllInfo(), dataset_info = dataset_info)
     inference_loader = dataset.getLoader()
@@ -382,6 +395,8 @@ if __name__ == "__main__":
     # Creating new Pruned AIModel
     pruning_optimizator.setAIModel(efficientnet)
     pruned_efficientnet = pruning_optimizator.applyOptimization(inference_loader)
+
+    printModels(pruned_efficientnet.getModel(), pruned_efficientnet.getInfo('model_name'))
 
     # Attaching dataset to pruned model
     dataset.loadInferenceData(model_info = pruned_efficientnet.getAllInfo(), dataset_info = dataset_info)

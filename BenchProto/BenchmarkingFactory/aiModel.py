@@ -15,6 +15,7 @@ from pathlib import Path
 from torchvision import models
 from BenchmarkingFactory.dataWrapper import DataWrapper
 from pymemtrace import cPyMemTrace
+import torch.nn as nn
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
