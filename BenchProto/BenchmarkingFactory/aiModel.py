@@ -360,8 +360,8 @@ class AIModel():
                     )
 
                     # Run inference with binding options
-                    with cPyMemTrace.Profile():
-                        ort_session.run_with_iobinding(io_binding)
+                    #with cPyMemTrace.Profile():
+                    ort_session.run_with_iobinding(io_binding)
 
                 elif device_name == "cpu":
 
@@ -381,8 +381,8 @@ class AIModel():
                     io_binding.bind_output(output_name, device_type = 'cpu',
                                             device_id=0)
 
-                    with cPyMemTrace.Profile():
-                        ort_session.run_with_iobinding(io_binding)
+                    #with cPyMemTrace.Profile():
+                    ort_session.run_with_iobinding(io_binding)
 
                     # Get outputs and reconvert into torch tensors
                     onnx_outputs_ort = io_binding.get_outputs()

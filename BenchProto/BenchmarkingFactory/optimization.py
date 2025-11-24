@@ -81,6 +81,7 @@ class PruningOptimization(Optimization):
                 if hasattr(module, "weight"):
                     parameters_to_prune.append((module, "weight"))
 
+
         prune.global_unstructured(
             parameters_to_prune,
             pruning_method = pruning_method,
@@ -90,6 +91,8 @@ class PruningOptimization(Optimization):
         # Applying pruning permanently
         for module, param_name in parameters_to_prune:
             prune.remove(module, param_name)
+
+        logger.info(f"PRUNING APPLIED WITH {pruning_method}, on {amount*100}% of the nodes on {current_model_info['model_name']}")
 
         pruned_aimodel.getAllInfo()['model_name'] += "_pruned"
         pruned_aimodel.getAllInfo()['description'] += f"(Pruned with {self.getOptimizationInfo('method')} with amount {self.getOptimizationInfo('amount')})"
