@@ -79,6 +79,7 @@
             "Quantization": {
                 "description": "Quantization level object", 
                 "type": "object",
+                "required": ["method", "type"],
                 "properties": {
                     "method": {"type": "string"},
                     "type": {"enum": ["static", "dynamic"]}
@@ -87,18 +88,33 @@
             "Pruning": {
                 "description": "Pruning level object", 
                 "type": "object",
+                "required": ["method", "amount"],
                 "properties":{
                     "method": {"type": "string"},
                     "amount": {
                         "type": "number",
                         "exclusiveMinimum": 0,
                         "maximum": 1
-                    }
+                    }, 
+                    "n": {
+                        "type": "integer",
+                        "minimum": 1
                     
+                    }
+                },
+                "if": {
+                    "properties":{
+                        "method": {
+                            "const": "LnStructured"
+                        }
+                    }
+                }, 
+                "then": {
+                    "required":["n"]
                 }
             }
         },
-        "minItems": 1
+        "maxItems": 1
     },
 
     "dataset": {
@@ -115,11 +131,12 @@
                 "description": "The batch size",
                 "type":"number"
             }
-        }
+        },
+        "maxItems": 1
 
     }   
 },
+
 "required": ["models", "optimizations", "dataset"],
 "additionalProperties": false
-
 }

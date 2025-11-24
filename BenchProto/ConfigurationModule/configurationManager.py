@@ -13,7 +13,7 @@ from pathlib import Path
 from numpy import delete
 from pathlib import Path
 from hashlib import sha224
-
+import cProfile
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 config_path=str(PROJECT_ROOT / "ConfigurationModule" / "ConfigFiles" / "config.json") #config file path
@@ -400,18 +400,19 @@ if __name__ == "__main__":
                 "type":"static" 
             },
             "Pruning": {
-                "method": "L1Unstructured",
-                "amount": 0.7
+                "method": "LnStructured",
+                "amount": 0.7,
+                "n":1
             }
         },
         "dataset": {
-            "data_dir": "./ModelData/Dataset/dataset_name",
+            "data_dir": "./ModelData/Dataset/casting_data",
             "batch_size": 32
         }
     }
 
 
-    configManager = ConfigManager()
+    configManager = ConfigManager(there_is_gpu=False, arch="x86")
     #configFile, hash_value = configManager.loadConfigFile()
 
     hash_value = configManager.createConfigFile(configTest)

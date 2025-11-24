@@ -81,6 +81,7 @@ class PruningOptimization(Optimization):
         # Define importance strategy
         imp = self.__getImportanceMethod(method)
 
+<<<<<<< HEAD
         # Ignore last classifier
         ignored_layers = []
         for m in model_to_prune.modules():
@@ -94,6 +95,13 @@ class PruningOptimization(Optimization):
             iterative_steps=1,    
             ch_sparsity=amount,   
             ignored_layers=ignored_layers,
+=======
+
+        prune.global_unstructured(
+            parameters_to_prune,
+            pruning_method = pruning_method,
+            amount = amount
+>>>>>>> frabru-branch
         )
 
         # Execute Pruning
@@ -103,7 +111,12 @@ class PruningOptimization(Optimization):
         # Check the result
         logger.debug(f"Model physically shrunk. New structure applied.")
 
+<<<<<<< HEAD
         # Update info
+=======
+        logger.info(f"PRUNING APPLIED WITH {pruning_method}, on {amount*100}% of the nodes on {current_model_info['model_name']}")
+
+>>>>>>> frabru-branch
         pruned_aimodel.getAllInfo()['model_name'] += "_pruned"
         pruned_aimodel.getAllInfo()['description'] += f"(Structurally Pruned amount {amount})"
         
@@ -154,7 +167,54 @@ class PruningOptimization(Optimization):
         """
         return self.optimization_config[info]
 
+<<<<<<< HEAD
   
+=======
+    def __getLayerNames(self, model: nn.Module):
+        """
+        Function to list Layers of model passed, in order to chose layers for global pruning
+        
+        Input:
+            -model: torch module attached to current AIModule
+        """
+
+        if not self.current_aimodel:
+            raise MissingAIModelError(
+                "Internal error: __getLayerNames called but current_aimodel is not set."
+            )
+        
+        model_name = self.current_aimodel.getInfo('model_name')
+        unique_type_layers = set()
+
+        for module in model.modules():
+            unique_type_layers.add(module.__class__.__name__)
+
+        logger.debug(f"\nGetting layers from model {model_name}")
+        model_layers = sorted(list(unique_type_layers))
+        for layer_type in model_layers:
+            logger.debug(f"{layer_type}")
+
+        # FOR THE FUTURE THESE LAYERS COULD BE PARAMETRIZED WITH CONFIG FILE (YAML/TOML)
+        desired_global_pruning_layers = ["Conv2d", "Linear"]
+
+        final_global_pruning_layers = {layer for layer in model_layers if layer in desired_global_pruning_layers}
+        return final_global_pruning_layers
+
+    def __getPruningMethod(self):
+        """
+        Function that get the right pruning method form prune.BasePruningMethods
+        """
+
+        pruning_method = self.getOptimizationInfo('method')
+        
+        class_method = getattr(prune, pruning_method)
+
+        if class_method is None:
+            return prune.RandomUnstructured
+
+        return class_method
+
+>>>>>>> frabru-branch
 
 
 class QuantizationOptimization(Optimization):

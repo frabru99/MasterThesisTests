@@ -11,11 +11,10 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
-#local scripts
-import BenchmarkingFactory.aiModel as aiModel
-import BenchmarkingFactory.optimization as optimization
-import BenchmarkingFactory.dataWrapper as datawrapper
-from ConfigurationModule.configurationManager import optimizations_library_path, ConfigManager
+
+#For Example Purposes
+from ProbeHardwareModule.probeHardwareManager import ProbeHardwareManager
+from PackageDownloadModule.packageDownloadManager import PackageDownloadManager
 
 class DoE():
     _instance = None #for Singleton
@@ -222,7 +221,23 @@ if __name__ == "__main__":
         }
     }
 
-    cm = ConfigManager(there_is_gpu=False, arch="x86")
+    probe = ProbeHardwareManager()
+
+    there_is_gpu, gpu_type, sys_arch = probe.checkSystem()
+
+    pdm = PackageDownloadManager()
+
+    pdm.checkDownloadedDependencies(there_is_gpu)
+
+
+    #local scripts
+    import BenchmarkingFactory.aiModel as aiModel
+    import BenchmarkingFactory.optimization as optimization
+    import BenchmarkingFactory.dataWrapper as datawrapper
+    from ConfigurationModule.configurationManager import optimizations_library_path, ConfigManager
+
+
+    cm = ConfigManager(there_is_gpu=there_is_gpu, arch=sys_arch)
 
     config_id = cm.createConfigFile(config)
 
