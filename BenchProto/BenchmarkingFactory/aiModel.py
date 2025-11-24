@@ -319,9 +319,12 @@ class AIModel():
 
         n_total_images = len(input_data.dataset)
         num_batches = len(input_data)
-        logger.info(f"In this dataset there are {n_total_images} images across {num_batches} batches")
+        logger.debug(f"In this dataset there are {n_total_images} images across {num_batches} batches")
+        
         total = 0
         correct = 0
+        running_loss = 0
+        criterion = nn.CrossEntropyLoss()
 
     
         with torch.no_grad():
@@ -392,6 +395,9 @@ class AIModel():
                 # Cleaning binding for next iteration
                 io_binding.clear_binding_inputs()
                 io_binding.clear_binding_outputs()
+
+                loss = criterion(onnx_outputs_tensor, labels)
+                running_loss += loss.item() * batch_size
                 predicted_indices = torch.argmax(onnx_outputs_tensor, dim=1)
                 total += labels.shape[0]
                 correct += (predicted_indices == labels).sum().item()
@@ -415,7 +421,8 @@ class AIModel():
                 logger.warning(f"Could not delete profile file {profile_file_path}: {e}")
 
             accuracy = 100 * correct / total
-            logger.debug(f"Accuracy of ONNX {model_name} is {accuracy:.2f}%")
+            average_loss = running_loss / total
+            logger.debug(f"ONNX {model_name} Stats => Accuracy: {accuracy:.2f}% | AverageLoss: {average_loss:.4f}")
             stats['accuracy'] = accuracy
 
             print("\n")

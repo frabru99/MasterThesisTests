@@ -4,6 +4,8 @@ config.dictConfig(TEST_LOGGING_CONFIG)
 logger = getLogger(__name__)
 
 import onnx
+import torch
+import torch_pruning as tp
 import torch.nn as nn
 import torch.nn.utils.prune as prune
 import torch.quantization as tq
@@ -41,64 +43,96 @@ class PruningOptimization(Optimization):
         self.current_aimodel = None
         self.optimization_config = optimization_config
 
-    def applyOptimization(self):
+    def applyOptimization(self, input_loader):
         """
-        Apply the optimization pruning configured with config, to the aiModel attached
-
+        Apply structural pruning using data from the loader for shape inference.
+        
         Input:
-            -N.A.
+            - input_loader: DataLoader to fetch a sample input batch (for shape detection)
+        """ 
 
-        Output:
-            -optimized_model: aiModel optimized with global pruning
-        """
-
-        logger.debug(f"-----> [OPTIMIZATION MODULE] APPLY PRUNING OPTIMIZATION ")
+        logger.debug(f"-----> [OPTIMIZATION MODULE] APPLY STRUCTURAL PRUNING")
 
         if not self.current_aimodel:
-            raise MissingAIModelError(
-                "No AIModel set. Call setAIModel() before applying optimization"
-            )
+            raise MissingAIModelError("No AIModel set.")
 
         current_model_info = self.current_aimodel.getAllInfo()
         pruned_model_info = deepcopy(current_model_info)
-
-        logger.debug(f"Creating a copy of the model {current_model_info['model_name']}")
         pruned_aimodel = AIModel(pruned_model_info)
         model_to_prune = pruned_aimodel.getModel()
 
-        pruning_method = self.__getPruningMethod()
-        layer_to_prune = self.__getLayerNames(model_to_prune)
+        method = self.getOptimizationInfo('method')
+        device = self.current_aimodel.getInfo('device')
         amount = self.getOptimizationInfo('amount')
+        n = self.getOptimizationInfo('n')
 
-        logger.info(f"Amount:{amount}")
-        logger.info(f"Method:{pruning_method}")
+        try:
+            batch = next(iter(input_loader))
+            if isinstance(batch, (list, tuple)):
+                example_inputs = batch[0]
+            else:
+                example_inputs = batch
 
-        parameters_to_prune = []
+            example_inputs = example_inputs.to(device)
+            logger.debug(f"Shape inference using input size: {example_inputs.shape}")
+        except Exception as e:
+            logger.error(f"Failed to fetch batch from loader: {e}")
 
-        # Building list of parameters to prune
-        for module in model_to_prune.modules():
-            if module.__class__.__name__ in layer_to_prune:
-                if hasattr(module, "weight"):
-                    parameters_to_prune.append((module, "weight"))
+        # Define importance strategy
+        imp = self.__getImportanceMethod(method)
 
+        # Ignore last classifier
+        ignored_layers = []
+        for m in model_to_prune.modules():
+            if isinstance(m, torch.nn.Linear) and m.out_features == self.current_aimodel.getInfo('num_classes'):
+                ignored_layers.append(m)
 
-        prune.global_unstructured(
-            parameters_to_prune,
-            pruning_method = pruning_method,
-            amount = amount
+        pruner = tp.pruner.MagnitudePruner(
+            model_to_prune,
+            example_inputs,
+            importance=imp,
+            iterative_steps=1,    
+            ch_sparsity=amount,   
+            ignored_layers=ignored_layers,
         )
 
-        # Applying pruning permanently
-        for module, param_name in parameters_to_prune:
-            prune.remove(module, param_name)
+        # Execute Pruning
+        logger.info(f"Pruning model with structural pruning... Target Sparsity: {amount}")
+        pruner.step() 
+        
+        # Check the result
+        logger.debug(f"Model physically shrunk. New structure applied.")
 
         logger.info(f"PRUNING APPLIED WITH {pruning_method}, on {amount*100}% of the nodes on {current_model_info['model_name']}")
 
         pruned_aimodel.getAllInfo()['model_name'] += "_pruned"
-        pruned_aimodel.getAllInfo()['description'] += f"(Pruned with {self.getOptimizationInfo('method')} with amount {self.getOptimizationInfo('amount')})"
-        logger.debug(f"<----- [OPTIMIZATION MODULE] APPLY PRUNING OPTIMIZATION")
+        pruned_aimodel.getAllInfo()['description'] += f"(Structurally Pruned amount {amount})"
+        
+        logger.debug(f"<----- [OPTIMIZATION MODULE] DONE")
 
         return pruned_aimodel
+
+    def __getImportanceMethod(self, method: str):
+        """
+        Get the Importance method to use in the pruning
+
+        Input:
+            - method: string that defines the method
+
+        Output:
+            - importance_method: class used from torch_pruning
+        """
+
+        if method == "Random":
+            logger.info(f"Using Random Strategy for Pruning")
+            imp = tp.importance.RandomImportance()
+        elif methdo == "LnStructured":
+            logger.info(f"Using Ln Structuerd Strategy for Pruning")
+            n = self.getOptimizationInfo('n')
+            imp = tp.importance.MagnitudeImportance(p=n)
+
+        return imp
+
 
     def setOptimizationConfig(self, optimization_config):
         """
@@ -121,50 +155,7 @@ class PruningOptimization(Optimization):
         """
         return self.optimization_config[info]
 
-    def __getLayerNames(self, model: nn.Module):
-        """
-        Function to list Layers of model passed, in order to chose layers for global pruning
-        
-        Input:
-            -model: torch module attached to current AIModule
-        """
-
-        if not self.current_aimodel:
-            raise MissingAIModelError(
-                "Internal error: __getLayerNames called but current_aimodel is not set."
-            )
-        
-        model_name = self.current_aimodel.getInfo('model_name')
-        unique_type_layers = set()
-
-        for module in model.modules():
-            unique_type_layers.add(module.__class__.__name__)
-
-        logger.debug(f"\nGetting layers from model {model_name}")
-        model_layers = sorted(list(unique_type_layers))
-        for layer_type in model_layers:
-            logger.debug(f"{layer_type}")
-
-        # FOR THE FUTURE THESE LAYERS COULD BE PARAMETRIZED WITH CONFIG FILE (YAML/TOML)
-        desired_global_pruning_layers = ["Conv2d", "Linear"]
-
-        final_global_pruning_layers = {layer for layer in model_layers if layer in desired_global_pruning_layers}
-        return final_global_pruning_layers
-
-    def __getPruningMethod(self):
-        """
-        Function that get the right pruning method form prune.BasePruningMethods
-        """
-
-        pruning_method = self.getOptimizationInfo('method')
-        
-        class_method = getattr(prune, pruning_method)
-
-        if class_method is None:
-            return prune.RandomUnstructured
-
-        return class_method
-
+  
 
 
 class QuantizationOptimization(Optimization):
@@ -380,8 +371,9 @@ if __name__ == "__main__":
     # -------- TEST WITH PRUNED MODEL -------------------
     #Pruning Info example
     pruning_info = {
-        "method": "L1Unstructured",
-        "amount": 0.3
+        "method": "Random",
+        "n": 1,
+        "amount": 0.2
     }
 
     # Creating Pruning Optimization Object
@@ -389,7 +381,7 @@ if __name__ == "__main__":
     
     # Creating new Pruned AIModel
     pruning_optimizator.setAIModel(efficientnet)
-    pruned_efficientnet = pruning_optimizator.applyOptimization()
+    pruned_efficientnet = pruning_optimizator.applyOptimization(inference_loader)
 
     # Attaching dataset to pruned model
     dataset.loadInferenceData(model_info = pruned_efficientnet.getAllInfo(), dataset_info = dataset_info)
