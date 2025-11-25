@@ -23,6 +23,7 @@ models_library_path= str(PROJECT_ROOT / "ConfigurationModule" / "ConfigFiles" / 
 optimizations_library_path = str(PROJECT_ROOT / "ConfigurationModule" / "ConfigFiles" / "optimizations_library.json") #optimizations_library file path
 VALID_CHOICES = {'y','n'} #Choices for CPU Usage
 OPTIMIZATIONS_NEED_ARCH = {"Quantization"} #Optimizations that needs the arch type of the system.
+OPTIMIZATION_NEED_N = {"LnStructured"}
 
 error_dataset_path_message =""" 
 ├── ModelData/
@@ -188,6 +189,8 @@ class ConfigManager:
                 else:
                     logger.info(f"OPTIMIZATION {optimization_name} - {optimizations[optimization_name]['method']} RECOGNISED!")
 
+                if "n" in optimizations[optimization_name] and optimizations[optimization_name]["method"] not in OPTIMIZATION_NEED_N:
+                    optimizations[optimization_name].pop("n")
 
             if len(opt_to_remove) > 0:
                 for name in opt_to_remove:
@@ -321,6 +324,7 @@ class ConfigManager:
         else:
             logger.info(f"EXITING...\n")
             return None, None
+
 
     def __addArchType(self, config: dict):
 

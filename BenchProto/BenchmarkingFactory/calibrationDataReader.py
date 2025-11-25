@@ -29,6 +29,3 @@ class CustomCalibrationDataReader(quantization.CalibrationDataReader):
     
     def rewind(self):
         self.enum_data = iter(self.torch_dl)
-
-
-    

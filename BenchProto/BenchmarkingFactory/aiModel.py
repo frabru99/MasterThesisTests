@@ -9,7 +9,7 @@ import onnxruntime as ort
 import onnx
 import torch
 import json
-from os import remove
+from os import remove, mkdir
 from importlib import import_module
 from pathlib import Path
 from torchvision import models
@@ -54,6 +54,32 @@ class AIModel():
     def getInfo(self, info_name: str):
 
         return self.__model_info[info_name]
+
+    def __printStats(self, input: dict, topic: str) -> None:
+        """
+        Handler function to print Stas of the model on terminal.
+
+        Input:
+            - input: dict that contains couples key, value to print.
+            - topic: the topic to print at the first line
+
+        """
+
+        print("\n" +"-"*10 + topic + "-"*10)
+        for key, value in input.items():
+            if key=="Accuracy":
+                print("\n")
+                
+            if isinstance(value, float):
+                print(f"{key}: {value:.2f}")
+                continue
+            
+            print(f"{key}: {value}")
+                
+
+        print("-"*10 + "-"*len(topic)+"-"*10+"\n")
+        
+
 
     def _replaceModelClassifier(self, model, class_name):
         """
@@ -199,6 +225,124 @@ class AIModel():
 
         return final_provider_list
 
+
+    def __calculateStats(self, profile_file_path: str, num_batches: int, total_images: int, correct: int, total: int, running_loss: int) -> dict:
+        """
+        Parses an ONNX Runtime profile JSON file to get pure kernel statistics.
+        
+        Input:
+            -profile_file_path: The path to the profile.json file.
+            -num_batches: The total number of batches in the inference run
+                        (e.g., len(inference_loader)).
+            -total_images: The total number of images in the dataset
+                        (e.g., len(inference_loader.dataset)).
+
+        Output:
+            A dictionary with total time, per-batch avg, and per-image avg.
+        """
+
+        total_kernel_time_us = 0
+        total_model_run_time_us = 0
+        total_sequential_execution_time_us = 0
+        node_events = []
+        #model_run_events = []
+        #linear_execution_events = []
+
+        try:
+            with open(profile_file_path, 'r') as f:
+                trace_data = json.load(f)
+
+            # Iterate over all events in the trace
+            for event in trace_data:
+                event_cat = event.get("cat")
+                event_name = event.get("name")
+                event_dur = event.get("dur", 0)
+
+                if event_cat  == "Node":
+                    duration_us = event_dur
+                    total_kernel_time_us += duration_us
+                    node_events.append(duration_us)
+                elif event_cat == "Session" and event_name == "model_run":
+                    model_run_duration_us = event_dur
+                    total_model_run_time_us += model_run_duration_us
+                    #model_run_events.append(model_run_duration_us)
+                elif event_cat == "Session" and event_name == "SequentialExecutor::Execute":
+                    linear_execution_duration_us = event_dur
+                    total_sequential_execution_time_us += linear_execution_duration_us
+                    #linear_execution_events.append(linear_execution_duration_us)
+            
+            if num_batches == 0 or total_images == 0:
+                logger.error(f"Number of batches or images cannot be zero. im: {total_images}; batch: {num_batches}")
+                return {}
+
+            if not node_events:
+                logger.warning(f"No Node events found in {profile_file_path}.")
+                return {}
+
+            # Calculate the stats to return
+            total_kernel_time_ms = total_kernel_time_us / 1000.0
+            total_model_run_time_ms = total_model_run_time_us / 1000.0
+            total_sequential_execution_time_ms = total_sequential_execution_time_us / 1000.0
+
+            avg_kernel_time_per_batch_ms = total_kernel_time_ms / num_batches
+            avg_kernel_time_per_image_ms = total_kernel_time_ms / total_images
+            avg_sequential_executor_time_per_batch_ms = total_sequential_execution_time_ms / num_batches
+            avg_sequential_executor_time_per_image_ms = total_sequential_execution_time_ms / total_images
+            avg_model_run_time_per_batch_ms = total_model_run_time_ms / num_batches
+            avg_model_run_time_per_image_ms = total_model_run_time_ms / total_images
+            
+            total_onnx_runtime_overhead = total_model_run_time_ms - total_sequential_execution_time_ms
+            avg_onnx_runtime_overhead_per_batch_ms = avg_model_run_time_per_batch_ms - avg_sequential_executor_time_per_batch_ms
+            avg_onnx_runtime_overhead_per_image_ms = avg_model_run_time_per_image_ms - avg_sequential_executor_time_per_image_ms
+            
+
+            node_latencies_ms = [n / 1000.0 for n in node_events]
+            p95_node_latency_ms = np.percentile(node_latencies_ms, 95)
+
+            accuracy = 100 * correct / total
+            average_loss = running_loss / total
+
+            stats = {
+                "Inference Event Path": profile_file_path,
+                "Total 'kernel' inference time": total_kernel_time_ms,
+                "Avg. 'kernel' inference time per batch": avg_kernel_time_per_batch_ms,
+                "Avg. 'kernel' inference time per image": avg_kernel_time_per_image_ms,
+                "Total sequential executor time": total_sequential_execution_time_ms,
+                "Avg. sequential executor time per batch": avg_sequential_executor_time_per_batch_ms,
+                "Avg. sequential executor time per image": avg_sequential_executor_time_per_image_ms,
+                "Total model run time": total_model_run_time_ms,
+                "Avg. model run time per batch": avg_model_run_time_per_batch_ms,
+                "Avg. model run time per image": avg_model_run_time_per_image_ms,
+                "Total ONNX runtime overhead": total_onnx_runtime_overhead,
+                "Avg. ONNX runtime overhead per batch": avg_onnx_runtime_overhead_per_batch_ms,
+                "Avg. ONNX runtime overhead per image": avg_onnx_runtime_overhead_per_batch_ms,
+                "total_nodes_executed": len(node_events),
+                "p95_node_latency_ms": p95_node_latency_ms,
+                "Accuracy": accuracy,
+                "Avg. Loss": average_loss
+            }
+
+        
+            # Clean up the file
+            try:
+                remove(profile_file_path)
+                logger.debug(f"Cleaned up profile file: {profile_file_path}")
+            except OSError as e:
+                logger.warning(f"Could not delete profile file {profile_file_path}: {e}")
+
+
+            return stats
+
+        except FileNotFoundError:
+            logger.error(f"Profile file not found: {profile_file_path}")
+            return {}
+        except json.JSONDecodeError:
+            logger.error(f"Error decoding JSON from {profile_file_path}")
+            return {}
+        except Exception as e:
+            logger.error(f"An error occured during profiling: {e}")
+            return {}
+
     def setModel(self, model):
         """
         Set new model to the AIModel
@@ -216,7 +360,7 @@ class AIModel():
 
         return self.__model
 
-    def createOnnxModel(self, input_data):
+    def createOnnxModel(self, input_data, config_id):
         """
         Function that creates the onnx file to use for the inference part
         """
@@ -225,7 +369,13 @@ class AIModel():
 
 
         model_name = self.getInfo('model_name')
-        onnx_model_path = PROJECT_ROOT / "ModelData" / "ONNXModels" / f"{model_name}.onnx"
+        onnx_directory_path = PROJECT_ROOT / "ModelData" / "ONNXModels" / f"{config_id}" 
+        onnx_model_path = onnx_directory_path /f"{model_name}.onnx"
+
+
+        if not onnx_directory_path.exists():
+            mkdir(onnx_directory_path)
+
         
         if onnx_model_path.exists():
             logger.info(f"ONNX file of {model_name} already exists at {onnx_model_path}")
@@ -276,7 +426,7 @@ class AIModel():
 
         logger.debug(f"<----- [AIMODEL MODULE] CREATE ONNX MODEL\n")
 
-    def runInference(self, input_data) -> str:
+    def runInference(self, input_data, config_id) -> str:
         """
         Function to run inference on a given dataset
 
@@ -291,7 +441,7 @@ class AIModel():
 
         device_str = self.getInfo('device')
         model_name = self.getInfo('model_name')
-        onnx_model_path = PROJECT_ROOT / "ModelData" / "ONNXModels"  /  f"{model_name}.onnx"
+        onnx_model_path = PROJECT_ROOT / "ModelData" / "ONNXModels"  / f"{config_id}" / f"{model_name}.onnx"
 
         provider_list = self._getProviderList(self.getInfo('device'))
         device_name = "cuda" if device_str == "gpu" else "cpu"
@@ -299,6 +449,7 @@ class AIModel():
         try:
             # Enable profiling
             sess_options = ort.SessionOptions()
+            sess_options.enable_mem_pattern = True
             sess_options.enable_profiling = True
             sess_options.profile_file_prefix = self.getInfo('model_name')
             logger.debug(f"Session is enabled with profiling")
@@ -320,7 +471,7 @@ class AIModel():
 
         n_total_images = len(input_data.dataset)
         num_batches = len(input_data)
-        logger.debug(f"In this dataset there are {n_total_images} images across {num_batches} batches")
+        logger.info(f"In this dataset there are {n_total_images} images across {num_batches} batches")
         
         total = 0
         correct = 0
@@ -329,79 +480,78 @@ class AIModel():
 
     
         with torch.no_grad():
-            for inputs, labels in input_data:
+            with cPyMemTrace.Profile(0):
+                for inputs, labels in input_data:
 
-                labels = labels.to(device_str)
-                batch_size = inputs.shape[0]
+                    labels = labels.to(device_str)
+                    batch_size = inputs.shape[0]
 
-                if device_name == "cuda":
+                    if device_name == "cuda":
 
-                    # Moving the input on the same device of the onnx session for zero copy
-                    input_tensor = inputs.to(device_str).contiguous()
+                        # Moving the input on the same device of the onnx session for zero copy
+                        input_tensor = inputs.to(device_str).contiguous()
 
-                    # Pre allocate output tensor on gpu
-                    output_shape = (batch_size, output_num_classes)
-                    onnx_output_tensor = torch.empty(output_shape, 
-                                                      dtype=torch.float32, 
-                                                      device=device_name).contiguous()
+                        # Pre allocate output tensor on gpu
+                        output_shape = (batch_size, output_num_classes)
+                        onnx_output_tensor = torch.empty(output_shape, 
+                                                        dtype=torch.float32, 
+                                                        device=device_name).contiguous()
 
-                    # Binding Input and Outputs
-                    io_binding.bind_input(
-                        name=input_name,
-                        device_type='cuda',
-                        device_id=0,
-                        element_type=input_type,
-                        shape=tuple(input_tensor.shape),
-                        buffer_ptr=input_tensor.data_ptr()
-                    )
-                    io_binding.bind_output(
-                        name=output_name,
-                        device_type='cuda',
-                        device_id=0,
-                        element_type=output_type,
-                        shape=tuple(onnx_output_tensor.shape),
-                        buffer_ptr=onnx_output_tensor.data_ptr()
-                    )
+                        # Binding Input and Outputs
+                        io_binding.bind_input(
+                            name=input_name,
+                            device_type='cuda',
+                            device_id=0,
+                            element_type=input_type,
+                            shape=tuple(input_tensor.shape),
+                            buffer_ptr=input_tensor.data_ptr()
+                        )
+                        io_binding.bind_output(
+                            name=output_name,
+                            device_type='cuda',
+                            device_id=0,
+                            element_type=output_type,
+                            shape=tuple(onnx_output_tensor.shape),
+                            buffer_ptr=onnx_output_tensor.data_ptr()
+                        )
 
-                    # Run inference with binding options
-                    #with cPyMemTrace.Profile():
-                    ort_session.run_with_iobinding(io_binding)
+                        # Run inference with binding options
+                        ort_session.run_with_iobinding(io_binding)
 
-                elif device_name == "cpu":
+                    elif device_name == "cpu":
 
-                    input_as_numpy = inputs.numpy()
+                        input_as_numpy = inputs.numpy()
 
-                    ort_input_value = ort.OrtValue.ortvalue_from_numpy(input_as_numpy)
+                        ort_input_value = ort.OrtValue.ortvalue_from_numpy(input_as_numpy)
 
-                    # Binding inputs and outputs on cpu
-                    io_binding.bind_input(
-                        name=input_name,
-                        device_type='cpu',
-                        device_id=0,  
-                        element_type=input_type,
-                        shape=tuple(input_as_numpy.shape),
-                        buffer_ptr=input_as_numpy.ctypes.data 
-                    )
-                    io_binding.bind_output(output_name, device_type = 'cpu',
-                                            device_id=0)
+                        # Binding inputs and outputs on cpu
+                        io_binding.bind_input(
+                            name=input_name,
+                            device_type='cpu',
+                            device_id=0,  
+                            element_type=input_type,
+                            shape=tuple(input_as_numpy.shape),
+                            buffer_ptr=input_as_numpy.ctypes.data 
+                        )
+                        io_binding.bind_output(output_name, device_type = 'cpu',
+                                                device_id=0)
 
-                    #with cPyMemTrace.Profile():
-                    ort_session.run_with_iobinding(io_binding)
+                        ort_session.run_with_iobinding(io_binding)
 
-                    # Get outputs and reconvert into torch tensors
-                    onnx_outputs_ort = io_binding.get_outputs()
-                    numpy_output = onnx_outputs_ort[0].numpy()
-                    onnx_outputs_tensor = torch.from_numpy(numpy_output)
+                        # Get outputs and reconvert into torch tensors
+                        onnx_outputs_ort = io_binding.get_outputs()
+                        numpy_output = onnx_outputs_ort[0].numpy()
+                        onnx_outputs_tensor = torch.from_numpy(numpy_output)
 
-                # Cleaning binding for next iteration
-                io_binding.clear_binding_inputs()
-                io_binding.clear_binding_outputs()
+                    # Cleaning binding for next iteration
+                    io_binding.clear_binding_inputs()
+                    io_binding.clear_binding_outputs()
 
-                loss = criterion(onnx_outputs_tensor, labels)
-                running_loss += loss.item() * batch_size
-                predicted_indices = torch.argmax(onnx_outputs_tensor, dim=1)
-                total += labels.shape[0]
-                correct += (predicted_indices == labels).sum().item()
+                    loss = criterion(onnx_outputs_tensor, labels)
+                    running_loss += loss.item() * batch_size
+                    predicted_indices = torch.argmax(onnx_outputs_tensor, dim=1)
+                    total += labels.shape[0]
+                    correct += (predicted_indices == labels).sum().item()
 
             # Get profile path
             profile_file_path = ort_session.end_profiling()
@@ -412,112 +562,16 @@ class AIModel():
             logger.debug(f"Profile file generated: {profile_file_path}")
             
             # Get kernel stats
-            stats = self.__calculateKernelStats(profile_file_path, num_batches, n_total_images)
+            stats = self.__calculateStats(profile_file_path, num_batches, n_total_images, correct, total, running_loss)
 
-            # Clean up the file
-            try:
-                remove(profile_file_path)
-                logger.debug(f"Cleaned up profile file: {profile_file_path}")
-            except OSError as e:
-                logger.warning(f"Could not delete profile file {profile_file_path}: {e}")
-
-            accuracy = 100 * correct / total
-            average_loss = running_loss / total
-            logger.debug(f"ONNX {model_name} Stats => Accuracy: {accuracy:.2f}% | AverageLoss: {average_loss:.4f}")
-            stats['accuracy'] = accuracy
-
-            print("\n")
-            logger.info(f"### RESULTS OF INFERENCE TEST ###")
-            for stat, value in stats.items():
-                if  isinstance(value, float):
-                    logger.info(f"{stat}: {value:.2f}")
-                else:
-                    logger.info(f"{stat}: {value}")
-            print("\n")
-
+            
+            self.__printStats(stats, f" {model_name} STATS ")            
 
             logger.debug(f"<----- [AIMODEL MODULE] RUN INFERENCE\n")
 
             return stats
 
-    def __calculateKernelStats(self, profile_file_path: str, num_batches: int, total_images: int) -> dict:
-        """
-        Parses an ONNX Runtime profile JSON file to get pure kernel statistics.
-        
-        Input:
-            -profile_file_path: The path to the profile.json file.
-            -num_batches: The total number of batches in the inference run
-                        (e.g., len(inference_loader)).
-            -total_images: The total number of images in the dataset
-                        (e.g., len(inference_loader.dataset)).
-
-        Output:
-            A dictionary with total time, per-batch avg, and per-image avg.
-        """
-
-        total_kernel_time_us = 0
-        total_model_run_time_us = 0
-        node_events = []
-        model_run_events = []
-
-        try:
-            with open(profile_file_path, 'r') as f:
-                trace_data = json.load(f)
-
-            # Iterate over all events in the trace
-            for event in trace_data:
-                if event.get("cat") == "Node":
-                    duration_us = event.get("dur", 0)
-                    total_kernel_time_us += duration_us
-                    node_events.append(duration_us)
-                elif event.get('cat') == "Session" and event.get("name") == "model_run":
-                    model_run_duration_us = event.get("dur", 0)
-                    total_model_run_time_us += model_run_duration_us
-                    model_run_events.append(model_run_duration_us)
-            
-            if num_batches == 0 or total_images == 0:
-                logger.error(f"Number of batches or images cannot be zero. im: {total_images}; batch: {num_batches}")
-                return {}
-
-            if not node_events:
-                logger.warning(f"No Node events found in {profile_file_path}.")
-                return {}
-
-            # Calculate the stats to return
-            total_kernel_time_ms = total_kernel_time_us / 1000.0
-            total_model_run_time_ms = total_model_run_time_us / 1000.0
-
-            avg_kernel_time_per_batch_ms = total_kernel_time_ms /num_batches
-            avg_kernel_time_per_image_ms = total_kernel_time_ms / total_images
-            avg_model_run_time_per_batch_ms = total_model_run_time_ms / num_batches
-            avg_model_run_time_per_image_ms = total_model_run_time_ms / total_images
-
-            node_latencies_ms = [n / 1000.0 for n in node_events]
-            p95_node_latency_ms = np.percentile(node_latencies_ms, 95)
-
-            stats = {
-                "inference_event_path": profile_file_path,
-                "total_pure_kernel_time_ms": total_kernel_time_ms,
-                "avg_kernel_time_per_batch_ms": avg_kernel_time_per_batch_ms,
-                "avg_kernel_time_per_image_ms": avg_kernel_time_per_image_ms,
-                "total_model_run_time_ms": total_model_run_time_ms,
-                "avg_model_run_time_per_batch_ms": avg_model_run_time_per_batch_ms,
-                "avg_model_run_time_per_image_ms": avg_model_run_time_per_image_ms,
-                "total_nodes_executed": len(node_events),
-                "p95_node_latency_ms": p95_node_latency_ms
-            }
-
-            return stats
-
-        except FileNotFoundError:
-            logger.error(f"Profile file not found: {profile_file_path}")
-            return {}
-        except json.JSONDecodeError:
-            logger.error(f"Error decoding JSON from {profile_file_path}")
-            return {}
-        except Exception as e:
-            logger.error(f"An error occured during profiling: {e}")
-            return {}
+    
 
 if __name__ == "__main__":
 
@@ -583,5 +637,4 @@ if __name__ == "__main__":
     mobile_stats = mobilenet.runInference(inference_loader)
 
     logger.debug("------------- AI MODULE TEST END -------------------")
-
 

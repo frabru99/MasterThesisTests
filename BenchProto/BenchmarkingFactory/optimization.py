@@ -21,6 +21,7 @@ from BenchmarkingFactory.calibrationDataReader import CustomCalibrationDataReade
 from BenchmarkingFactory.dataWrapper import DataWrapper
 from BenchmarkingFactory.aiModel import AIModel
 
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 class Optimization(ABC): 
@@ -43,7 +44,7 @@ class PruningOptimization(Optimization):
         self.current_aimodel = None
         self.optimization_config = optimization_config
 
-    def applyOptimization(self, input_loader):
+    def applyOptimization(self, input_loader, config_id=None):
         """
         Apply structural pruning using data from the loader for shape inference.
         
@@ -94,6 +95,7 @@ class PruningOptimization(Optimization):
             importance=imp,
             iterative_steps=1,    
             ch_sparsity=amount,   
+            round_to=8,
             ignored_layers=ignored_layers,
         )
 
@@ -190,7 +192,7 @@ class QuantizationOptimization(Optimization):
         """
         self.current_aimodel =  AIModel
 
-    def applyOptimization(self, input_examples):
+    def applyOptimization(self, input_examples, config_id=None):
         """
         Apply the optimization quantization configured with config, to the aiModel attached
 
@@ -221,7 +223,7 @@ class QuantizationOptimization(Optimization):
 
         match quant_type:
             case "static":
-                res = self.__staticQuantizationOnnx(model_name, device, input_examples)   
+                res = self.__staticQuantizationOnnx(model_name, device, input_examples, config_id)   
             
             case "dynamic":
                 pass
@@ -232,14 +234,14 @@ class QuantizationOptimization(Optimization):
 
         return quantized_aimodel
 
-    def __staticQuantizationOnnx(self, model_name, device, inputs):
+    def __staticQuantizationOnnx(self, model_name, device, inputs, config_id):
         """
         Apply Static Quantization with ONNX
         """  
 
-        model_path = str(PROJECT_ROOT / "ModelData" / "ONNXModels" / f"{model_name}.onnx")
-        model_prep_path = str(PROJECT_ROOT / "ModelData" / "ONNXModels" / f"{model_name}_prep.onnx")
-        model_quantized_path = str(PROJECT_ROOT / "ModelData" / "ONNXModels" / f"{model_name}_quantized.onnx")
+        model_path = str(PROJECT_ROOT / "ModelData" / "ONNXModels" / f"{config_id}"  / f"{model_name}.onnx")
+        model_prep_path = str(PROJECT_ROOT / "ModelData" / "ONNXModels" / f"{config_id}" / f"{model_name}_prep.onnx")
+        model_quantized_path = str(PROJECT_ROOT / "ModelData" / "ONNXModels" / f"{config_id}" /f"{model_name}_quantized.onnx")
 
         onnx.shape_inference.infer_shapes_path(model_path, model_prep_path)
 
@@ -286,15 +288,6 @@ class QuantizationOptimization(Optimization):
             return True
         else:
             return False
-
-
-def printModels(model: object, model_name: str):
-
-    module_len = 0
-    for name,module in model.named_modules():
-        module_len += 1
-
-    print(f"{model_name}, LEN: {module_len}")
 
    
 class MissingAIModelError(Exception):
@@ -361,7 +354,6 @@ if __name__ == "__main__":
     logger.debug(f"Inference with {efficientnet.getInfo('model_name')}, description: {efficientnet.getInfo('description')}")
     logger.debug(f"Test inference on casting product")
 
-    printModels(efficientnet.getModel(), efficientnet.getInfo('model_name'))
 
     # Attaching dataset to unpruned model
     dataset.loadInferenceData(model_info = efficientnet.getAllInfo(), dataset_info = dataset_info)
@@ -395,8 +387,6 @@ if __name__ == "__main__":
     # Creating new Pruned AIModel
     pruning_optimizator.setAIModel(efficientnet)
     pruned_efficientnet = pruning_optimizator.applyOptimization(inference_loader)
-
-    printModels(pruned_efficientnet.getModel(), pruned_efficientnet.getInfo('model_name'))
 
     # Attaching dataset to pruned model
     dataset.loadInferenceData(model_info = pruned_efficientnet.getAllInfo(), dataset_info = dataset_info)
