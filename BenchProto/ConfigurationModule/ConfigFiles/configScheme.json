@@ -32,7 +32,7 @@
                 },
                 "device":{
                     "description": "The device that the model should use.",
-                     "enum": ["cpu", "gpu"]
+                     "enum": ["cpu", "gpu", "cuda"]
                 }, 
                 "class_name":{
                     "description": "The name of the model class required. Depends on the framework. For torchvision mobilenet v2: mobilenet_v2",

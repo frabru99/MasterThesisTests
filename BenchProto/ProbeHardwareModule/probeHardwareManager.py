@@ -10,6 +10,8 @@ from GPUtil import getGPUs
 from pyamdgpuinfo import detect_gpus, get_gpu
 from platform import uname
 from rich.pretty import pprint
+from Utils.utilsFunctions import getHumanReadableValue
+
 
 #Tests
 from PackageDownloadModule.packageDownloadManager import PackageDownloadManager
@@ -127,7 +129,7 @@ class ProbeHardwareManager():
 
         vmem = virtual_memory()
         mem_infos = [vmem.total, vmem.available, vmem.used]
-        results = [self.__getHumanReadableValue(value) for value in mem_infos]
+        results = [getHumanReadableValue(value) for value in mem_infos]
 
         memoryinfo = {
             "Total Memory" : results[0],
@@ -140,12 +142,12 @@ class ProbeHardwareManager():
         
 
         if mem_infos[0] <= default_memory_total_threshold:
-            logger.error(f"The tools requires at least {self.__getHumanReadableValue(default_memory_total_threshold)} of Total Memory to run smoothly.")
+            logger.error(f"The tools requires at least {getHumanReadableValue(default_memory_total_threshold)} of Total Memory to run smoothly.")
             logger.info("EXITING...")
             exit(0)
 
         if mem_infos[1] <= default_memory_usage_threshold:
-            logger.error(f"The tools requires at least {self.__getHumanReadableValue(default_memory_usage_threshold)} of Free Memory to run smoothly.")
+            logger.error(f"The tools requires at least {getHumanReadableValue(default_memory_usage_threshold)} of Free Memory to run smoothly.")
             logger.info("EXITING...")
             exit(0)
 
@@ -165,8 +167,8 @@ class ProbeHardwareManager():
         for partition in partitions:
             if "home" in partition.mountpoint or "/" in partition.mountpoint:
                 partitions_info["Mountpoint"] = partition.mountpoint
-                partitions_info["Total Disk Space"] = self.__getHumanReadableValue(disk_usage(partition.mountpoint).total)
-                partitions_info["Free Disk Space"] = self.__getHumanReadableValue(disk_usage(partition.mountpoint).free)
+                partitions_info["Total Disk Space"] = getHumanReadableValue(disk_usage(partition.mountpoint).total)
+                partitions_info["Free Disk Space"] = getHumanReadableValue(disk_usage(partition.mountpoint).free)
                 break
 
                 # if "home" in partition.mountpoint:
@@ -175,12 +177,12 @@ class ProbeHardwareManager():
         self.__printInformations(partitions_info, "DISK USAGE INFORMATIONS")
 
         if disk_usage(partition.mountpoint).total <= default_disk_total_threshold:
-            logger.error(f"The tools requires at least {self.__getHumanReadableValue(default_disk_total_threshold)} of Total Disk.")
+            logger.error(f"The tools requires at least {getHumanReadableValue(default_disk_total_threshold)} of Total Disk.")
             logger.info("EXITING...")
             exit(0)
 
         if  disk_usage(partition.mountpoint).free <= default_disk_usage_threshold:
-            logger.error(f"The tools requires at least {self.__getHumanReadableValue(default_disk_usage_threshold)} of Free Disk.")
+            logger.error(f"The tools requires at least {getHumanReadableValue(default_disk_usage_threshold)} of Free Disk.")
             logger.info("EXITING...")
             exit(0)
 
@@ -208,7 +210,7 @@ class ProbeHardwareManager():
                 logger.info(f"AT LEAST ONE AMD GPU FOUND.\n")
                 for i in range(amd_gpus):
                     gpu = get_gpu(i)
-                    vram_usage=self.__getHumanReadableValue(gpu.query_vram_usage())
+                    vram_usage=getHumanReadableValue(gpu.query_vram_usage())
                     gpu_load = gpu.query_load()*100
 
 
@@ -279,28 +281,6 @@ class ProbeHardwareManager():
             self.__printInformations(gpu_info, "GPU INFORMATIONS")
 
         return there_is_gpu, gpu_type
-
-
-
-    def __getHumanReadableValue(self, value: bytes, suffix: str="B") -> str:
-        """
-        Scale bytes to its proper format
-        e.g:
-            1253656 => '1.20MB'
-            1253656678 => '1.17GB'
-
-        Input:
-            - value: the value in bytes
-            - suffix: the string suffix
-        Output: 
-            - string: the value in string format
-
-        """
-        factor = 1024
-        for unit in ["", "K", "M", "G", "T", "P"]:
-            if value < factor:
-                return f"{value:.2f}{unit}{suffix}"
-            value /= factor
 
 
     def checkSystem(self) -> (bool, str, str):

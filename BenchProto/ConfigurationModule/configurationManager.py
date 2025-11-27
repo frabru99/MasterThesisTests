@@ -305,8 +305,7 @@ class ConfigManager:
 
         except (ValidationError, Exception) as e:
             logger.error(f"Encountered a problem validating the config file. Check if the fields provided are correct.\nThe specific error is: {e}.\n")
-            return None
-
+            exit(0)
     
         logger.info("CONFIGURATION FILE CORRECTLY VALIDATED! \n")
         self.__printConfigFile(config, " INITIAL CONF. FILE ")
@@ -351,7 +350,7 @@ class ConfigManager:
             validate(instance=config, schema=self.__schema)
         except (ValidationError, Exception) as e:
             logger.error(f"Encountered a problem validating the config file. Check if the fields provided are correct. \n The specific error is: {e}.\n")
-            return
+            exit(0)
 
         logger.info("CONFIGURATION FILE CORRECTLY VALIDATED! \n")
 
