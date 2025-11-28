@@ -8,13 +8,19 @@ import numpy as np
 import onnxruntime as ort
 import onnx
 import torch
+import torch.nn as nn
 import json
-from os import remove, mkdir
+from os import remove, mkdir, getpid
 from importlib import import_module
 from pathlib import Path
 from torchvision import models
 from BenchmarkingFactory.dataWrapper import DataWrapper
 from pymemtrace import cPyMemTrace
+
+
+from psutil import Process
+from Utils.utilsFunctions import getHumanReadableValue
+from Utils.calculateStats import CalculateStats
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
@@ -53,6 +59,9 @@ class AIModel():
     def getInfo(self, info_name: str):
 
         return self.__model_info[info_name]
+
+
+    
 
     def _replaceModelClassifier(self, model, class_name):
         """
@@ -198,6 +207,8 @@ class AIModel():
 
         return final_provider_list
 
+
+
     def setModel(self, model):
         """
         Set new model to the AIModel
@@ -227,8 +238,10 @@ class AIModel():
         onnx_directory_path = PROJECT_ROOT / "ModelData" / "ONNXModels" / f"{config_id}" 
         onnx_model_path = onnx_directory_path /f"{model_name}.onnx"
 
+
         if not onnx_directory_path.exists():
             mkdir(onnx_directory_path)
+
         
         if onnx_model_path.exists():
             logger.info(f"ONNX file of {model_name} already exists at {onnx_model_path}")
@@ -267,7 +280,7 @@ class AIModel():
                 onnx_model_path,
                 export_params=True,
                 opset_version=13,
-                do_constant_folding = False, # Facultative optimization, for good measurements we deactivated it
+                do_constant_folding = False,
                 input_names = ['input'],
                 output_names = ['output'],
                 dynamic_axes = dynamic_axes_config,
@@ -299,14 +312,22 @@ class AIModel():
         provider_list = self._getProviderList(self.getInfo('device'))
         device_name = "cuda" if device_str == "gpu" else "cpu"
 
+        process = Process(getpid())
+
+
         try:
             # Enable profiling
             sess_options = ort.SessionOptions()
+            sess_options.enable_mem_pattern = True
             sess_options.enable_profiling = True
             sess_options.profile_file_prefix = self.getInfo('model_name')
             logger.debug(f"Session is enabled with profiling")
 
-            ort_session = ort.InferenceSession(str(onnx_model_path), providers=provider_list, sess_options = sess_options)
+
+            with cPyMemTrace.Profile(0):
+                ort_session = ort.InferenceSession(str(onnx_model_path), providers=provider_list, sess_options = sess_options)
+
+
             input_name = ort_session.get_inputs()[0].name
             output_name = ort_session.get_outputs()[0].name
             
@@ -323,91 +344,106 @@ class AIModel():
 
         n_total_images = len(input_data.dataset)
         num_batches = len(input_data)
-        logger.debug(f"In this dataset there are {n_total_images} images across {num_batches} batches")
+        logger.info(f"In this dataset there are {n_total_images} images across {num_batches} batches")
         
         total = 0
         correct = 0
         running_loss = 0
         criterion = torch.nn.CrossEntropyLoss()
 
+
+        max_memory_arena_allocated = 0
+
     
         with torch.no_grad():
-            for inputs, labels in input_data:
+            with cPyMemTrace.Profile(0):
+                for inputs, labels in input_data:
 
-                labels = labels.to(device_str)
-                batch_size = inputs.shape[0]
+                    labels = labels.to(device_str)
+                    batch_size = inputs.shape[0]
 
-                if device_name == "cuda":
+                    if device_name == "cuda":
 
-                    # Moving the input on the same device of the onnx session for zero copy
-                    input_tensor = inputs.to(device_str).contiguous()
+                        # Moving the input on the same device of the onnx session for zero copy
+                        input_tensor = inputs.to(device_str).contiguous()
 
-                    # Pre allocate output tensor on gpu
-                    output_shape = (batch_size, output_num_classes)
-                    onnx_output_tensor = torch.empty(output_shape, 
-                                                      dtype=torch.float32, 
-                                                      device=device_name).contiguous()
+                        # Pre allocate output tensor on gpu
+                        output_shape = (batch_size, output_num_classes)
+                        onnx_output_tensor = torch.empty(output_shape, 
+                                                        dtype=torch.float32, 
+                                                        device=device_name).contiguous()
 
-                    # Binding Input and Outputs
-                    io_binding.bind_input(
-                        name=input_name,
-                        device_type='cuda',
-                        device_id=0,
-                        element_type=input_type,
-                        shape=tuple(input_tensor.shape),
-                        buffer_ptr=input_tensor.data_ptr()
-                    )
-                    io_binding.bind_output(
-                        name=output_name,
-                        device_type='cuda',
-                        device_id=0,
-                        element_type=output_type,
-                        shape=tuple(onnx_output_tensor.shape),
-                        buffer_ptr=onnx_output_tensor.data_ptr()
-                    )
+                        # Binding Input and Outputs
+                        io_binding.bind_input(
+                            name=input_name,
+                            device_type='cuda',
+                            device_id=0,
+                            element_type=input_type,
+                            shape=tuple(input_tensor.shape),
+                            buffer_ptr=input_tensor.data_ptr()
+                        )
+                        io_binding.bind_output(
+                            name=output_name,
+                            device_type='cuda',
+                            device_id=0,
+                            element_type=output_type,
+                            shape=tuple(onnx_output_tensor.shape),
+                            buffer_ptr=onnx_output_tensor.data_ptr()
+                        )
 
-                    # Run inference with binding options
-                    #with cPyMemTrace.Profile():
-                    ort_session.run_with_iobinding(io_binding)
+                        # Run inference with binding options
+                        ort_session.run_with_iobinding(io_binding)
 
-                elif device_name == "cpu":
+                    elif device_name == "cpu":
 
-                    input_as_numpy = inputs.numpy()
+                        input_as_numpy = inputs.numpy()
 
-                    ort_input_value = ort.OrtValue.ortvalue_from_numpy(input_as_numpy)
+                        ort_input_value = ort.OrtValue.ortvalue_from_numpy(input_as_numpy)
 
-                    # Binding inputs and outputs on cpu
-                    io_binding.bind_input(
-                        name=input_name,
-                        device_type='cpu',
-                        device_id=0,  
-                        element_type=input_type,
-                        shape=tuple(input_as_numpy.shape),
-                        buffer_ptr=input_as_numpy.ctypes.data 
-                    )
-                    io_binding.bind_output(output_name, device_type = 'cpu',
-                                            device_id=0)
+                        # Binding inputs and outputs on cpu
+                        io_binding.bind_input(
+                            name=input_name,
+                            device_type='cpu',
+                            device_id=0,  
+                            element_type=input_type,
+                            shape=tuple(input_as_numpy.shape),
+                            buffer_ptr=input_as_numpy.ctypes.data 
+                        )
+                        io_binding.bind_output(output_name, device_type = 'cpu',
+                                                device_id=0)
 
-                    #with cPyMemTrace.Profile():
-                    ort_session.run_with_iobinding(io_binding)
+                        #Arena + Weights
+                        memory_before = process.memory_info().rss
 
-                    # Get outputs and reconvert into torch tensors
-                    onnx_outputs_ort = io_binding.get_outputs()
-                    numpy_output = onnx_outputs_ort[0].numpy()
-                    onnx_outputs_tensor = torch.from_numpy(numpy_output)
+                        ort_session.run_with_iobinding(io_binding)
 
-                # Cleaning binding for next iteration
-                io_binding.clear_binding_inputs()
-                io_binding.clear_binding_outputs()
+                        memory_after = process.memory_info().rss
 
-                loss = criterion(onnx_outputs_tensor, labels)
-                running_loss += loss.item() * batch_size
-                predicted_indices = torch.argmax(onnx_outputs_tensor, dim=1)
-                total += labels.shape[0]
-                correct += (predicted_indices == labels).sum().item()
+                        if memory_after - memory_before > 0:
+                            max_memory_arena_allocated += memory_after - memory_before 
+
+                        # Get outputs and reconvert into torch tensors
+                        onnx_outputs_ort = io_binding.get_outputs()
+                        numpy_output = onnx_outputs_ort[0].numpy()
+                        onnx_outputs_tensor = torch.from_numpy(numpy_output)
+
+                    # Cleaning binding for next iteration
+                    io_binding.clear_binding_inputs()
+                    io_binding.clear_binding_outputs()
+
+                    loss = criterion(onnx_outputs_tensor, labels)
+                    running_loss += loss.item() * batch_size
+                    predicted_indices = torch.argmax(onnx_outputs_tensor, dim=1)
+                    total += labels.shape[0]
+                    correct += (predicted_indices == labels).sum().item()
 
             # Get profile path
             profile_file_path = ort_session.end_profiling()
+
+            del ort_session
+
+
+
             if not profile_file_path:
                 logger.error(f"Profiling enabled but no file was generated.")
                 return {}
@@ -415,112 +451,17 @@ class AIModel():
             logger.debug(f"Profile file generated: {profile_file_path}")
             
             # Get kernel stats
-            stats = self.__calculateKernelStats(profile_file_path, num_batches, n_total_images)
+            logger.info(f"TOTAL MEMORY ALLOCATED THROUGH RUN (WEIGHTS + ARENA): {getHumanReadableValue(max_memory_arena_allocated)}")
+            stats = CalculateStats.calculateStats(profile_file_path, num_batches, n_total_images, correct, total, running_loss)
 
-            # Clean up the file
-            try:
-                remove(profile_file_path)
-                logger.debug(f"Cleaned up profile file: {profile_file_path}")
-            except OSError as e:
-                logger.warning(f"Could not delete profile file {profile_file_path}: {e}")
-
-            accuracy = 100 * correct / total
-            average_loss = running_loss / total
-            logger.debug(f"ONNX {model_name} Stats => Accuracy: {accuracy:.2f}% | AverageLoss: {average_loss:.4f}")
-            stats['accuracy'] = accuracy
-
-            print("\n")
-            logger.info(f"### RESULTS OF INFERENCE TEST ###")
-            for stat, value in stats.items():
-                if  isinstance(value, float):
-                    logger.info(f"{stat}: {value:.2f}")
-                else:
-                    logger.info(f"{stat}: {value}")
-            print("\n")
-
+            
+            CalculateStats.printStats(stats, f" {model_name} STATS ")            
 
             logger.debug(f"<----- [AIMODEL MODULE] RUN INFERENCE\n")
 
             return stats
 
-    def __calculateKernelStats(self, profile_file_path: str, num_batches: int, total_images: int) -> dict:
-        """
-        Parses an ONNX Runtime profile JSON file to get pure kernel statistics.
-        
-        Input:
-            -profile_file_path: The path to the profile.json file.
-            -num_batches: The total number of batches in the inference run
-                        (e.g., len(inference_loader)).
-            -total_images: The total number of images in the dataset
-                        (e.g., len(inference_loader.dataset)).
-
-        Output:
-            A dictionary with total time, per-batch avg, and per-image avg.
-        """
-
-        total_kernel_time_us = 0
-        total_model_run_time_us = 0
-        node_events = []
-        model_run_events = []
-
-        try:
-            with open(profile_file_path, 'r') as f:
-                trace_data = json.load(f)
-
-            # Iterate over all events in the trace
-            for event in trace_data:
-                if event.get("cat") == "Node":
-                    duration_us = event.get("dur", 0)
-                    total_kernel_time_us += duration_us
-                    node_events.append(duration_us)
-                elif event.get('cat') == "Session" and event.get("name") == "model_run":
-                    model_run_duration_us = event.get("dur", 0)
-                    total_model_run_time_us += model_run_duration_us
-                    model_run_events.append(model_run_duration_us)
-            
-            if num_batches == 0 or total_images == 0:
-                logger.error(f"Number of batches or images cannot be zero. im: {total_images}; batch: {num_batches}")
-                return {}
-
-            if not node_events:
-                logger.warning(f"No Node events found in {profile_file_path}.")
-                return {}
-
-            # Calculate the stats to return
-            total_kernel_time_ms = total_kernel_time_us / 1000.0
-            total_model_run_time_ms = total_model_run_time_us / 1000.0
-
-            avg_kernel_time_per_batch_ms = total_kernel_time_ms /num_batches
-            avg_kernel_time_per_image_ms = total_kernel_time_ms / total_images
-            avg_model_run_time_per_batch_ms = total_model_run_time_ms / num_batches
-            avg_model_run_time_per_image_ms = total_model_run_time_ms / total_images
-
-            node_latencies_ms = [n / 1000.0 for n in node_events]
-            p95_node_latency_ms = np.percentile(node_latencies_ms, 95)
-
-            stats = {
-                "inference_event_path": profile_file_path,
-                "total_pure_kernel_time_ms": total_kernel_time_ms,
-                "avg_kernel_time_per_batch_ms": avg_kernel_time_per_batch_ms,
-                "avg_kernel_time_per_image_ms": avg_kernel_time_per_image_ms,
-                "total_model_run_time_ms": total_model_run_time_ms,
-                "avg_model_run_time_per_batch_ms": avg_model_run_time_per_batch_ms,
-                "avg_model_run_time_per_image_ms": avg_model_run_time_per_image_ms,
-                "total_nodes_executed": len(node_events),
-                "p95_node_latency_ms": p95_node_latency_ms
-            }
-
-            return stats
-
-        except FileNotFoundError:
-            logger.error(f"Profile file not found: {profile_file_path}")
-            return {}
-        except json.JSONDecodeError:
-            logger.error(f"Error decoding JSON from {profile_file_path}")
-            return {}
-        except Exception as e:
-            logger.error(f"An error occured during profiling: {e}")
-            return {}
+    
 
 if __name__ == "__main__":
 
@@ -586,5 +527,3 @@ if __name__ == "__main__":
     mobile_stats = mobilenet.runInference(inference_loader)
 
     logger.debug("------------- AI MODULE TEST END -------------------")
-
-

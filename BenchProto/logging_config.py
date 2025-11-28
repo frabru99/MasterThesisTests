@@ -79,6 +79,12 @@ TEST_LOGGING_CONFIG = {
         'propagate': False
         },
 
+        'Utils.calculateStats': {
+        'level': 'INFO',
+        'handlers': ['console', 'test_file'],
+        'propagate': False
+        },
+
 
         # 2. Silencing onnxruntime
         'onnxruntime': {

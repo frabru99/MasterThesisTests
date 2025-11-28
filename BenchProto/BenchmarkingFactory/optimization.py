@@ -21,6 +21,7 @@ from BenchmarkingFactory.calibrationDataReader import CustomCalibrationDataReade
 from BenchmarkingFactory.dataWrapper import DataWrapper
 from BenchmarkingFactory.aiModel import AIModel
 
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 class Optimization(ABC): 
@@ -105,7 +106,7 @@ class PruningOptimization(Optimization):
         # Check the result
         logger.debug(f"Model physically shrunk. New structure applied.")
 
-        logger.info(f"PRUNING APPLIED WITH {pruning_method}, on {amount*100}% of the nodes on {current_model_info['model_name']}")
+        logger.info(f"PRUNING APPLIED WITH {method}, on {amount*100}% of the nodes on {current_model_info['model_name']}")
 
         pruned_aimodel.getAllInfo()['model_name'] += "_pruned"
         pruned_aimodel.getAllInfo()['description'] += f"(Structurally Pruned amount {amount})"
@@ -412,6 +413,7 @@ if __name__ == "__main__":
     efficientnet = AIModel(efficient_info)
     logger.debug(f"Inference with {efficientnet.getInfo('model_name')}, description: {efficientnet.getInfo('description')}")
     logger.debug(f"Test inference on casting product")
+
 
     # Attaching dataset to unpruned model
     dataset.loadInferenceData(model_info = efficientnet.getAllInfo(), dataset_info = dataset_info)

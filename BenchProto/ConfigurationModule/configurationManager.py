@@ -25,6 +25,7 @@ optimizations_library_path = str(PROJECT_ROOT / "ConfigurationModule" / "ConfigF
 models_weights_path = str(PROJECT_ROOT / "ModelData" / "Weights") #weights of embedded models in the framework
 VALID_CHOICES = {'y','n'} #Choices for CPU Usage
 OPTIMIZATIONS_NEED_ARCH = {"Quantization"} #Optimizations that needs the arch type of the system.
+OPTIMIZATION_NEED_N = {"LnStructured"}
 
 error_dataset_path_message =""" 
 ├── ModelData/
@@ -190,6 +191,8 @@ class ConfigManager:
                 else:
                     logger.info(f"OPTIMIZATION {optimization_name} - {optimizations[optimization_name]['method']} RECOGNISED!")
 
+                if "n" in optimizations[optimization_name] and optimizations[optimization_name]["method"] not in OPTIMIZATION_NEED_N:
+                    optimizations[optimization_name].pop("n")
 
             if len(opt_to_remove) > 0:
                 for name in opt_to_remove:
@@ -308,8 +311,7 @@ class ConfigManager:
 
         except (ValidationError, Exception) as e:
             logger.error(f"Encountered a problem validating the config file. Check if the fields provided are correct.\nThe specific error is: {e}.\n")
-            return None
-
+            exit(0)
     
         logger.info("CONFIGURATION FILE CORRECTLY VALIDATED! \n")
         self.__printConfigFile(config, " INITIAL CONF. FILE ")
@@ -327,6 +329,7 @@ class ConfigManager:
         else:
             logger.info(f"EXITING...\n")
             return None, None
+
 
     def __addArchType(self, config: dict):
 
@@ -353,7 +356,7 @@ class ConfigManager:
             validate(instance=config, schema=self.__schema)
         except (ValidationError, Exception) as e:
             logger.error(f"Encountered a problem validating the config file. Check if the fields provided are correct. \n The specific error is: {e}.\n")
-            return
+            exit(0)
 
         logger.info("CONFIGURATION FILE CORRECTLY VALIDATED! \n")
 
