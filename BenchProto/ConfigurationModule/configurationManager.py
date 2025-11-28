@@ -13,7 +13,6 @@ from pathlib import Path
 from numpy import delete
 from pathlib import Path
 from hashlib import sha224
-import cProfile
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 config_path=str(PROJECT_ROOT / "ConfigurationModule" / "ConfigFiles" / "config.json") #config file path
