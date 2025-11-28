@@ -464,6 +464,7 @@ if __name__ == "__main__":
 
 
     configManager = ConfigManager(arch="x86", there_is_gpu=False)
+
     #configFile, hash_value = configManager.loadConfigFile()
 
     hash_value = configManager.createConfigFile(configTest)

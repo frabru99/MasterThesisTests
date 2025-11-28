@@ -105,7 +105,8 @@ class PruningOptimization(Optimization):
         # Check the result
         logger.debug(f"Model physically shrunk. New structure applied.")
 
-        # Update info
+        logger.info(f"PRUNING APPLIED WITH {pruning_method}, on {amount*100}% of the nodes on {current_model_info['model_name']}")
+
         pruned_aimodel.getAllInfo()['model_name'] += "_pruned"
         pruned_aimodel.getAllInfo()['description'] += f"(Structurally Pruned amount {amount})"
         
