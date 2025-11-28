@@ -9,7 +9,7 @@ import onnxruntime as ort
 import onnx
 import torch
 import json
-from os import remove
+from os import remove, mkdir
 from importlib import import_module
 from pathlib import Path
 from torchvision import models
@@ -215,7 +215,7 @@ class AIModel():
 
         return self.__model
 
-    def createOnnxModel(self, input_data):
+    def createOnnxModel(self, input_data, config_id):
         """
         Function that creates the onnx file to use for the inference part
         """
@@ -224,7 +224,11 @@ class AIModel():
 
 
         model_name = self.getInfo('model_name')
-        onnx_model_path = PROJECT_ROOT / "ModelData" / "ONNXModels" / f"{model_name}.onnx"
+        onnx_directory_path = PROJECT_ROOT / "ModelData" / "ONNXModels" / f"{config_id}" 
+        onnx_model_path = onnx_directory_path /f"{model_name}.onnx"
+
+        if not onnx_directory_path.exists():
+            mkdir(onnx_directory_path)
         
         if onnx_model_path.exists():
             logger.info(f"ONNX file of {model_name} already exists at {onnx_model_path}")
@@ -263,7 +267,7 @@ class AIModel():
                 onnx_model_path,
                 export_params=True,
                 opset_version=13,
-                do_constant_folding = True,
+                do_constant_folding = False, # Facultative optimization, for good measurements we deactivated it
                 input_names = ['input'],
                 output_names = ['output'],
                 dynamic_axes = dynamic_axes_config,
@@ -275,7 +279,7 @@ class AIModel():
 
         logger.debug(f"<----- [AIMODEL MODULE] CREATE ONNX MODEL\n")
 
-    def runInference(self, input_data) -> str:
+    def runInference(self, input_data, config_id) -> str:
         """
         Function to run inference on a given dataset
 
@@ -290,7 +294,7 @@ class AIModel():
 
         device_str = self.getInfo('device')
         model_name = self.getInfo('model_name')
-        onnx_model_path = PROJECT_ROOT / "ModelData" / "ONNXModels"  /  f"{model_name}.onnx"
+        onnx_model_path = PROJECT_ROOT / "ModelData" / "ONNXModels"  / f"{config_id}" / f"{model_name}.onnx"
 
         provider_list = self._getProviderList(self.getInfo('device'))
         device_name = "cuda" if device_str == "gpu" else "cpu"
@@ -324,7 +328,7 @@ class AIModel():
         total = 0
         correct = 0
         running_loss = 0
-        criterion = nn.CrossEntropyLoss()
+        criterion = torch.nn.CrossEntropyLoss()
 
         with torch.no_grad():
             for inputs, labels in input_data:

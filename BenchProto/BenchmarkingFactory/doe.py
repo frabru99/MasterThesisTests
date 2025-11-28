@@ -11,11 +11,10 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
-#local scripts
-import BenchmarkingFactory.aiModel as aiModel
-import BenchmarkingFactory.optimization as optimization
-import BenchmarkingFactory.dataWrapper as datawrapper
-from ConfigurationModule.configurationManager import optimizations_library_path, ConfigManager
+
+#For Example Purposes
+from ProbeHardwareModule.probeHardwareManager import ProbeHardwareManager
+from PackageDownloadModule.packageDownloadManager import PackageDownloadManager
 
 class DoE():
     _instance = None #for Singleton
@@ -144,13 +143,16 @@ class DoE():
             dataset.loadInferenceData(model_info=model.getAllInfo(), dataset_info=self.__dataset_info)
             inference_loader = dataset.getLoader()
             self.__inference_loaders[model.getInfo("model_name")]=inference_loader #N Base Models = N Loaders
-            model.createOnnxModel(inference_loader)
+            model.createOnnxModel(inference_loader, self.__config_id)
 
             #Optimized Model...
             for optimizator in self.__optimizations:
                 optimizator.setAIModel(model)
-                optimized_model = optimizator.applyOptimization()
-                optimized_model.createOnnxModel(inference_loader)
+                optimized_model = optimizator.applyOptimization(inference_loader, self.__config_id)
+
+                if not optimized_model.getInfo("model_name").endswith("quantized"):
+                    optimized_model.createOnnxModel(inference_loader, self.__config_id)
+
                 optimized_models.append(optimized_model)
                 self.__inference_loaders[optimized_model.getInfo("model_name")] = inference_loader
 
@@ -164,13 +166,12 @@ class DoE():
     def run(self):
         assert self.__initialized, "The DoE should be initialized in order to run."
 
-       
-
+    
         for model in self.__models:
             #for inferece_loader_name, inferece_loader in self.__inference_loaders.items():
             inference_loader = self.__inference_loaders[model.getInfo("model_name")]
-            print(f"MODEL NAME: {model.getInfo('model_name')} - INFERENCE LOADER {inference_loader}")
-            model.runInference(inference_loader)
+            logger.info(f"MODEL NAME: {model.getInfo('model_name')} - INFERENCE LOADER {inference_loader}")
+            model.runInference(inference_loader, self.__config_id)
                     
 
 
@@ -194,26 +195,24 @@ if __name__ == "__main__":
                 "num_classes": 2,
                 "task": "classification",
                 "description": "Mobilenet V2 from torchvision"
-            },
+            }, 
             {
-                "module": "torchvision.models",
-                "model_name": "efficientnet", 
-                "native": False,
-                "distilled": False,
-                "weights_path": "ModelData/Weights/casting_efficientnet_b0.pth",
-                "device": "cpu",
-                "class_name": "efficientnet_b0",
-                "weights_class": "EfficientNet_B0_Weights.DEFAULT", 
-                "image_size": 224,
-                "num_classes": 2,
-                "task": "classification",
-                "description": "EfficientNet from Custom Models"
+                "model_name": "efficientnet",
+                "native": True
             }
         ],
         "optimizations": {
+            "Quantization": {
+                "method": "QInt8",
+                "type": "static"
+            }, 
             "Pruning": {
-                "method": "L1Unstructured",
-                "amount": 0.6
+                "method": "Random", 
+                "amount": 0.3
+            },
+            "Distillation":{
+                "method": True,
+                "distilled_paths": {}
             }
         },
         "dataset": {
@@ -222,7 +221,23 @@ if __name__ == "__main__":
         }
     }
 
-    cm = ConfigManager(there_is_gpu=False, arch="x86")
+    probe = ProbeHardwareManager()
+
+    there_is_gpu, gpu_type, sys_arch = probe.checkSystem()
+
+    pdm = PackageDownloadManager()
+
+    pdm.checkDownloadedDependencies(there_is_gpu)
+
+
+    #local scripts
+    import BenchmarkingFactory.aiModel as aiModel
+    import BenchmarkingFactory.optimization as optimization
+    import BenchmarkingFactory.dataWrapper as datawrapper
+    from ConfigurationModule.configurationManager import optimizations_library_path, ConfigManager
+
+
+    cm = ConfigManager(there_is_gpu=there_is_gpu, arch=sys_arch)
 
     config_id = cm.createConfigFile(config)
 
@@ -239,7 +254,6 @@ if __name__ == "__main__":
     
 
     
-
 
 
 
