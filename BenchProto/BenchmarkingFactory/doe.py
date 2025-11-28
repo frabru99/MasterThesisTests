@@ -209,6 +209,10 @@ if __name__ == "__main__":
             "Pruning": {
                 "method": "Random", 
                 "amount": 0.3
+            },
+            "Distillation":{
+                "method": True,
+                "distilled_paths": {}
             }
         },
         "dataset": {
@@ -250,7 +254,6 @@ if __name__ == "__main__":
     
 
     
-
 
 
 

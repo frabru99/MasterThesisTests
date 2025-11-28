@@ -1,4 +1,6 @@
 import difflib
+from difflib import SequenceMatcher
+from pathlib import Path
 
 def compareModelArchitecture(model1, model2):
     # Convert models to string representations
@@ -41,3 +43,34 @@ def getHumanReadableValue(value: bytes, suffix: str="B") -> str:
             if value < factor:
                 return f"{value:.2f}{unit}{suffix}"
             value /= factor
+
+def getLongestSubString(string1, string2):
+    """
+    Return the longest substring between two strings
+    """
+
+    string_match = SequenceMatcher(None, string1, string2).find_longest_match(0, len(string1), 0, len(string2))
+    longest_substring = string1[string_match.a : string_match.a + string_match.size]
+
+    return longest_substring
+
+def getFilenameList(directory_path: str):
+    """
+    Return a list of filename in a given directory
+    """
+
+    file_name_list = []
+    dir_path = Path(directory_path)
+
+    for file_path in dir_path.iterdir():
+
+        # Check if it is a file
+        if file_path.is_file():
+            file_name_list.append(file_path.name)
+
+    if file_name_list:
+        return file_name_list
+    else:
+        raise FileNotFoundError(f"No files were found in this directory: {directory_path}")
+        exit(0)
+

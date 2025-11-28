@@ -37,6 +37,13 @@
         "Pruning": {
             "method": "Random",
             "amount": 0.3
+        },
+        "Distillation": {
+            "method": true,
+            "distilled_paths": {
+                "mobilenet_v2": "/home/salvatore/Desktop/MasterThesis/MasterThesisTests/BenchProto/ModelData/Weights/mobilenet_v2_distilled.pth",
+                "efficientnet": "/home/salvatore/Desktop/MasterThesis/MasterThesisTests/BenchProto/ModelData/Weights/efficientnet_b0_distilled.pth"
+            }
         }
     },
     "dataset": {
