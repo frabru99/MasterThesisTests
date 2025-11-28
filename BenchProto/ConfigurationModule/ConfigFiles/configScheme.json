@@ -112,6 +112,20 @@
                 "then": {
                     "required":["n"]
                 }
+            },
+            "Distillation": {
+                "description": "Desidered Distillation",
+                "type": "object",
+                "properties": {
+                    "method": {"type": "boolean"},
+                    "distilled_paths": {
+                        "type": "object",
+                        "description": "Map where Key=ModelName and Value=FilePath",
+                        "additionalProperties": {
+                            "type": "string"
+                        }
+                    }
+                }
             }
         },
         "maxItems": 1
