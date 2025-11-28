@@ -349,7 +349,7 @@ class AIModel():
         total = 0
         correct = 0
         running_loss = 0
-        criterion = nn.CrossEntropyLoss()
+        criterion = torch.nn.CrossEntropyLoss()
 
 
         max_memory_arena_allocated = 0

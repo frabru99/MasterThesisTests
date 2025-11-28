@@ -94,8 +94,8 @@ class PruningOptimization(Optimization):
             example_inputs,
             importance=imp,
             iterative_steps=1,    
-            ch_sparsity=amount,   
-            round_to=8,
+            ch_sparsity=amount, 
+            round_to=8,  
             ignored_layers=ignored_layers,
         )
 
@@ -157,8 +157,6 @@ class PruningOptimization(Optimization):
         Return the choosen info from the optimization config setted
         """
         return self.optimization_config[info]
-
-  
 
 
 class QuantizationOptimization(Optimization):
@@ -289,7 +287,70 @@ class QuantizationOptimization(Optimization):
         else:
             return False
 
-   
+class DistillationOptimization(Optimization):
+
+    def __init__(self, optimization_config):
+        """
+        Empty Constructor, load dynamically models to apply and create a copy of the new model
+        """
+        
+        self.current_aimodel = None
+        self.optimization_config = optimization_config
+
+    def applyOptimization(self, input_examples=None, config_id=None):
+        """
+        Function that load the correct distilled version of the current AIModel
+        """
+
+        logger.debug(f"-----> [OPTIMIZATION MODULE] APPLY DISTILLATION OPTIMIZATION")
+    
+        if not self.current_aimodel:
+            raise MissingAIModelError(
+                "No AIModel set. Call setAIModel() before applying optimization"
+            )
+
+        current_model = self.getAIModel()
+        current_info = current_model.getAllInfo()
+        model_name = current_info['model_name']
+        num_classes = current_info['num_classes']
+        custom_weights_path = self.getOptimizationInfo('distilled_paths')[model_name]
+
+        logger.info(f"Creating structure for: {model_name}")
+
+        # Creating new info to pass to the new model
+        distilled_info = deepcopy(current_info)
+        distilled_info['model_name'] = current_info['model_name'] + "_distilled"
+        distilled_info['weights_path'] = custom_weights_path 
+        
+        # Create new model with correct distilled weights
+        distilled_aimodel = AIModel(distilled_info)
+
+        logger.debug(f"<----- [OPTIMIZATION MODULE] APPLY DISTILLATION OPTIMIZATION")
+
+        return distilled_aimodel
+        
+
+    def getOptimizationInfo(self, info: str):
+        """
+        Return the choosen info from the optimization config setted
+        """
+        return self.optimization_config[info]
+
+    def setAIModel(self, model):
+        """
+        Set the current AIModel
+        """
+
+        self.current_aimodel = model
+
+    def getAIModel(self):
+        """
+        Return the current AI Model
+        """
+
+        return self.current_aimodel
+
+
 class MissingAIModelError(Exception):
     """
     Raised when an optimization is applied before an AIModel is set.
@@ -298,7 +359,6 @@ class MissingAIModelError(Exception):
     pass
 
 if __name__ == "__main__":
-
 
 
     # Model Example
@@ -323,7 +383,7 @@ if __name__ == "__main__":
         'module': 'torchvision.models',
         'model_name': "efficientnet_v2",
         'native': True,
-        'distilled': False,
+        'distilled': 'tf_efficientnet_b0.ns_jft_in1k',
         'weights_path': efficient_path,
         'device': "cpu",
         'class_name': 'efficientnet_b0',
@@ -371,61 +431,75 @@ if __name__ == "__main__":
     mobilenet.createOnnxModel(mobilenet_loader)
     mobilenet.runInference(mobilenet_loader)
 
-    # -----------------------------------------------
+    # # -----------------------------------------------
 
-    # -------- TEST WITH PRUNED MODEL -------------------
-    #Pruning Info example
-    pruning_info = {
-        "method": "Random",
-        "n": 1,
-        "amount": 0.2
-    }
+    # # -------- TEST WITH PRUNED MODEL -------------------
+    # #Pruning Info example
+    # pruning_info = {
+    #     "method": "LnStructured",
+    #     "n": 1,
+    #     "amount": 0.2
+    # }
 
-    # Creating Pruning Optimization Object
-    pruning_optimizator = PruningOptimization(pruning_info)
+    # # Creating Pruning Optimization Object
+    # pruning_optimizator = PruningOptimization(pruning_info)
     
-    # Creating new Pruned AIModel
-    pruning_optimizator.setAIModel(efficientnet)
-    pruned_efficientnet = pruning_optimizator.applyOptimization(inference_loader)
+    # # Creating new Pruned AIModel
+    # pruning_optimizator.setAIModel(efficientnet)
+    # pruned_efficientnet = pruning_optimizator.applyOptimization(inference_loader)
 
-    # Attaching dataset to pruned model
-    dataset.loadInferenceData(model_info = pruned_efficientnet.getAllInfo(), dataset_info = dataset_info)
-    inference_loader = dataset.getLoader()
+    # # Attaching dataset to pruned model
+    # dataset.loadInferenceData(model_info = pruned_efficientnet.getAllInfo(), dataset_info = dataset_info)
+    # inference_loader = dataset.getLoader()
 
-    # Inference with prunde model
-    pruned_efficientnet.createOnnxModel(inference_loader)
-    pruned_efficientnet.runInference(inference_loader)
+    # # Inference with prunde model
+    # pruned_efficientnet.createOnnxModel(inference_loader)
+    # pruned_efficientnet.runInference(inference_loader)
 
-    # -----------------------------------------------
+    # # -----------------------------------------------
 
-    # ---------- TEST WITH QUANTIZED MODEL ---------------
+    # # ---------- TEST WITH QUANTIZED MODEL ---------------
 
-    quantization_info = {
-        "arch": "x86", #aarch
-        "method": "QInt8",
-        "type": "static"
-    }
+    # quantization_info = {
+    #     "arch": "x86", #aarch
+    #     "method": "QInt8",
+    #     "type": "static"
+    # }
 
-    quantization_optimizator = QuantizationOptimization(quantization_info)
+    # quantization_optimizator = QuantizationOptimization(quantization_info)
     
-    # Creating new quantized AIModel
-    quantization_optimizator.setAIModel(efficientnet)
-    quantized_efficientnet = quantization_optimizator.applyOptimization(inference_loader)
+    # # Creating new quantized AIModel
+    # quantization_optimizator.setAIModel(efficientnet)
+    # quantized_efficientnet = quantization_optimizator.applyOptimization(inference_loader)
 
-    # Attaching dataset to quantized model
-    dataset.loadInferenceData(model_info = quantized_efficientnet.getAllInfo(), dataset_info = dataset_info)
-    inference_loader = dataset.getLoader()
+    # # Attaching dataset to quantized model
+    # dataset.loadInferenceData(model_info = quantized_efficientnet.getAllInfo(), dataset_info = dataset_info)
+    # inference_loader = dataset.getLoader()
 
-    quantized_efficientnet.runInference(inference_loader)
+    # quantized_efficientnet.runInference(inference_loader)
 
-    quantization_optimizator.setAIModel(mobilenet)
-    quantized_mobilenet = quantization_optimizator.applyOptimization(mobilenet_loader)
-    mobilenet_dataset.loadInferenceData(model_info = quantized_mobilenet.getAllInfo(), dataset_info = dataset_info)
-    mobilenet_loader = mobilenet_dataset.getLoader()
-    quantized_mobilenet.runInference(mobilenet_loader)
+    # quantization_optimizator.setAIModel(mobilenet)
+    # quantized_mobilenet = quantization_optimizator.applyOptimization(mobilenet_loader)
+    # mobilenet_dataset.loadInferenceData(model_info = quantized_mobilenet.getAllInfo(), dataset_info = dataset_info)
+    # mobilenet_loader = mobilenet_dataset.getLoader()
+    # quantized_mobilenet.runInference(mobilenet_loader)
 
 
     # -----------------------------------------------
+
+    # ---------- TEST WITH DISTILLED MODEL ---------------
+
+    distillation_info = {}
+
+    distillation_optimizator = DistillationOptimization(distillation_info)
+    distillation_optimizator.setAIModel(efficientnet)  
+    distilled_efficientnet = distillation_optimizator.applyOptimization()  
+
+    distilled_efficientnet.createOnnxModel(inference_loader)
+    distilled_efficientnet.runInference(inference_loader)
+
+    # -----------------------------------------------
+
 
 
 

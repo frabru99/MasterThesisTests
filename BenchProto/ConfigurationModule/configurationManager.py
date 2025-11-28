@@ -13,6 +13,8 @@ from pathlib import Path
 from numpy import delete
 from pathlib import Path
 from hashlib import sha224
+from Utils.utilsFunctions import getLongestSubString, getFilenameList
+
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 config_path=str(PROJECT_ROOT / "ConfigurationModule" / "ConfigFiles" / "config.json") #config file path
@@ -20,6 +22,7 @@ config_schema_path=str(PROJECT_ROOT / "ConfigurationModule" / "ConfigFiles" / "c
 config_history_path=str(PROJECT_ROOT / "ConfigurationModule" / "ConfigFiles" / "configHistory.json") #configHistory file path
 models_library_path= str(PROJECT_ROOT / "ConfigurationModule" / "ConfigFiles" / "models_library.json") #models_library file path
 optimizations_library_path = str(PROJECT_ROOT / "ConfigurationModule" / "ConfigFiles" / "optimizations_library.json") #optimizations_library file path
+models_weights_path = str(PROJECT_ROOT / "ModelData" / "Weights") #weights of embedded models in the framework
 VALID_CHOICES = {'y','n'} #Choices for CPU Usage
 OPTIMIZATIONS_NEED_ARCH = {"Quantization"} #Optimizations that needs the arch type of the system.
 OPTIMIZATION_NEED_N = {"LnStructured"}
@@ -145,7 +148,7 @@ class ConfigManager:
 
 
 
-    def __checkOptimizations(self, optimizations: dict) -> bool:
+    def __checkOptimizations(self, optimizations: dict, model_dicts) -> bool:
         """
         Checks the availability of optimization methods wrote in config file. 
 
@@ -198,7 +201,11 @@ class ConfigManager:
 
             if len(optimizations) == 0:
                 logger.info("NO OPTIMIZATIONS PRESENT IN THE CONFIGURATION. EXITING....")
-                exit(0)       
+                exit(0)   
+
+            if "Distillation" in optimizations.keys():
+                if optimizations['Distillation']['method']:
+                    self.__createDistilledPaths(optimizations, model_dicts)
             
             self.__printConfigFile(optimizations, " OPTIMIZATIONS SECTION ")
 
@@ -311,7 +318,7 @@ class ConfigManager:
 
         logger.info("CHECKING THE MODELS...")
         
-        if self.__checkModels(config["models"]) and self.__checkDataset(config["dataset"]) and self.__checkOptimizations(config["optimizations"]):
+        if self.__checkModels(config["models"]) and self.__checkDataset(config["dataset"]) and self.__checkOptimizations(config["optimizations"], config["models"]):
             logger.info("DONE!")
             self.__printConfigFile(config, " FINAL CONF. FILE ")
             hash_value = sha224(str(config).encode("utf-8")).hexdigest()
@@ -353,7 +360,7 @@ class ConfigManager:
 
         logger.info("CONFIGURATION FILE CORRECTLY VALIDATED! \n")
 
-        if self.__checkModels(config["models"]) and self.__checkDataset(config["dataset"]) and self.__checkOptimizations(config["optimizations"]):
+        if self.__checkModels(config["models"]) and self.__checkDataset(config["dataset"]) and self.__checkOptimizations(config["optimizations"], config['models']):
             logger.info("DONE!")
             self.__printConfigFile(config, " FINAL CONF. FILE ")
             logger.info(f"SAVING IT INTO {config_path}...")
@@ -369,6 +376,48 @@ class ConfigManager:
             return hash_value
         else:
             logger.info(f"EXITING...\n")
+
+    def __createDistilledPaths(self, optimizations: dict, model_dicts):
+        """
+        Create the distilled paths for loading the distilled version of chosen models
+
+        Input:
+            - optimizations: dict of optimizations
+            - model_dicts: dict of all models choosen
+        """
+
+        file_name_list = getFilenameList(models_weights_path)
+        file_name_list = [file_name for file_name in file_name_list if "_distilled" in file_name]
+
+        for model_dict in model_dicts:
+
+            best_candidate_for_model, best_file_name = "", ""
+            for file_name in file_name_list:
+
+                file_name_without_pth = file_name.removesuffix("_distilled.pth")
+
+                best_candidate_for_name = getLongestSubString(model_dict['model_name'], file_name_without_pth)
+                best_candidate_for_path = getLongestSubString(model_dict['weights_path'].split("/")[-1].removesuffix(".pth"), file_name_without_pth)
+
+                best_candidate_between_name_path = max(best_candidate_for_name, best_candidate_for_path, key=len)
+
+                if len(best_candidate_between_name_path) > len(best_candidate_for_model):
+                    best_candidate_for_model = best_candidate_between_name_path
+                    best_file_name = file_name
+
+                # Perfect Match, found the distilled weights
+                if len(file_name_without_pth) == len(best_candidate_for_model):
+                    break
+
+            if len(best_file_name.removesuffix("_distilled.pth")) == len(best_candidate_for_model):
+                logger.info(f"MODEL: {model_dict['model_name']} | YOU FOUND THE CORRECT DISTILLED MODEL {best_file_name}")
+            elif len(best_file_name) == 0:
+                logger.error(f"MODEL: {model_dict['model_name']} | NO MATCH WITH NONE FILE FOR DISTILLED MODEL")
+                exit(0)
+            else:
+                logger.warning(f"MODEL: {model_dict['model_name']} | YOU FOUND A PARTIAL MATHC FOR A DISTILLED MODEL: {best_file_name}")
+
+            optimizations['Distillation']['distilled_paths'][model_dict['model_name']] =  f"{models_weights_path}/{best_file_name}"              
 
     
 
@@ -402,9 +451,12 @@ if __name__ == "__main__":
                 "type":"static" 
             },
             "Pruning": {
-                "method": "LnStructured",
-                "amount": 0.7,
-                "n":1
+                "method": "L1Unstructured",
+                "amount": 0.7
+            },
+            "Distillation": {
+                'method': True,
+                'distilled_paths': {}
             }
         },
         "dataset": {
@@ -414,7 +466,8 @@ if __name__ == "__main__":
     }
 
 
-    configManager = ConfigManager(there_is_gpu=False, arch="x86")
+    configManager = ConfigManager(arch="x86", there_is_gpu=False)
+
     #configFile, hash_value = configManager.loadConfigFile()
 
     hash_value = configManager.createConfigFile(configTest)
