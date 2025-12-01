@@ -315,18 +315,23 @@ class AIModel():
         process = Process(getpid())
 
 
+
+
         try:
             # Enable profiling
             sess_options = ort.SessionOptions()
             sess_options.enable_mem_pattern = True
             sess_options.enable_profiling = True
+            
             sess_options.profile_file_prefix = self.getInfo('model_name')
             logger.debug(f"Session is enabled with profiling")
+            
+            memory_before_session = process.memory_info().rss
 
+            #with cPyMemTrace.Profile(0):
+            ort_session = ort.InferenceSession(str(onnx_model_path), providers=provider_list, sess_options = sess_options)
 
-            with cPyMemTrace.Profile(0):
-                ort_session = ort.InferenceSession(str(onnx_model_path), providers=provider_list, sess_options = sess_options)
-
+            memory_after_session = process.memory_info().rss
 
             input_name = ort_session.get_inputs()[0].name
             output_name = ort_session.get_outputs()[0].name
@@ -353,6 +358,7 @@ class AIModel():
 
 
         max_memory_arena_allocated = 0
+
 
     
         with torch.no_grad():
@@ -440,9 +446,6 @@ class AIModel():
             # Get profile path
             profile_file_path = ort_session.end_profiling()
 
-            del ort_session
-
-
 
             if not profile_file_path:
                 logger.error(f"Profiling enabled but no file was generated.")
@@ -451,6 +454,7 @@ class AIModel():
             logger.debug(f"Profile file generated: {profile_file_path}")
             
             # Get kernel stats
+            logger.info(f"MEMORY ALLOCATED FOR THE SESSION: {getHumanReadableValue(memory_after_session-memory_before_session)}")
             logger.info(f"TOTAL MEMORY ALLOCATED THROUGH RUN (WEIGHTS + ARENA): {getHumanReadableValue(max_memory_arena_allocated)}")
             stats = CalculateStats.calculateStats(profile_file_path, num_batches, n_total_images, correct, total, running_loss)
 
