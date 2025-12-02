@@ -451,8 +451,8 @@ class AIModel():
             logger.debug(f"Profile file generated: {profile_file_path}")
             
             # Get kernel stats
-            logger.info(f"MEMORY ALLOCATED FOR THE SESSION: {getHumanReadableValue(memory_after_session-memory_before_session)}")
-            logger.info(f"TOTAL MEMORY ALLOCATED THROUGH RUN (WEIGHTS + ARENA): {getHumanReadableValue(max_memory_arena_allocated)}")
+            #logger.info(f"MEMORY ALLOCATED FOR THE SESSION: {getHumanReadableValue(memory_after_session-memory_before_session)}")
+            #logger.info(f"TOTAL MEMORY ALLOCATED THROUGH RUN (WEIGHTS + ARENA): {getHumanReadableValue(max_memory_arena_allocated)}")
             stats = CalculateStats.calculateStats(profile_file_path, num_batches, n_total_images, correct, total, running_loss)
 
             
