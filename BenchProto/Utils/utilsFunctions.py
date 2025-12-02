@@ -1,6 +1,18 @@
+from logging import config, getLogger
+from logging_config import TEST_LOGGING_CONFIG
+config.dictConfig(TEST_LOGGING_CONFIG) #logger config
+logger = getLogger(__name__) #logger
+
 import difflib
 from difflib import SequenceMatcher
 from pathlib import Path
+from subprocess import run, DEVNULL
+from time import sleep
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
+clean_caches_script_bash = "./" / PROJECT_ROOT / "Utils/scripts/cleancache.sh"
+
 
 def compareModelArchitecture(model1, model2):
     # Convert models to string representations
@@ -74,3 +86,20 @@ def getFilenameList(directory_path: str):
         raise FileNotFoundError(f"No files were found in this directory: {directory_path}")
         exit(0)
 
+
+def cleanCaches():
+    """
+    This function writes the number 3 in /proc/sys/vm/drop_caches file in order to drop the unused pages, inodes and dentries.
+    Visit man proc_sys_vm manpages for more.
+
+    """
+    try:
+
+        result = run([clean_caches_script_bash], check=True, stdout=DEVNULL)
+
+        if result.returncode==0:
+            logger.info("CACHE CLEANED...")
+    except ChildProcessError as e:
+        logger.error(f"Cache not cleaned correctly. The next measurements could be not independent.\nThe error is: {e}")
+    except Exception as e:
+        logger.error(f"Encountered a generic problem cleaning the caches. The next measurements could be not independent.\nThe error is: {e}")

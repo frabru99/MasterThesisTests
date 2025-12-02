@@ -3,14 +3,12 @@ from logging_config import TEST_LOGGING_CONFIG
 config.dictConfig(TEST_LOGGING_CONFIG)
 logger = getLogger(__name__)
 
-
-
 from json import load
 from pathlib import Path
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-
+from Utils.utilsFunctions import cleanCaches
 
 #For Example Purposes
 from ProbeHardwareModule.probeHardwareManager import ProbeHardwareManager
@@ -171,6 +169,7 @@ class DoE():
             #for inferece_loader_name, inferece_loader in self.__inference_loaders.items():
             inference_loader = self.__inference_loaders[model.getInfo("model_name")]
             logger.info(f"MODEL NAME: {model.getInfo('model_name')} - INFERENCE LOADER {inference_loader}")
+            cleanCaches()
             model.runInference(inference_loader, self.__config_id)
                     
 

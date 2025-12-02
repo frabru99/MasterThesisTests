@@ -15,7 +15,6 @@ from importlib import import_module
 from pathlib import Path
 from torchvision import models
 from BenchmarkingFactory.dataWrapper import DataWrapper
-from pymemtrace import cPyMemTrace
 
 
 from psutil import Process
@@ -328,7 +327,6 @@ class AIModel():
             
             memory_before_session = process.memory_info().rss
 
-            #with cPyMemTrace.Profile(0):
             ort_session = ort.InferenceSession(str(onnx_model_path), providers=provider_list, sess_options = sess_options)
 
             memory_after_session = process.memory_info().rss
@@ -362,86 +360,85 @@ class AIModel():
 
     
         with torch.no_grad():
-            with cPyMemTrace.Profile(0):
-                for inputs, labels in input_data:
+            for inputs, labels in input_data:
 
-                    labels = labels.to(device_str)
-                    batch_size = inputs.shape[0]
+                labels = labels.to(device_str)
+                batch_size = inputs.shape[0]
 
-                    if device_name == "cuda":
+                if device_name == "cuda":
 
-                        # Moving the input on the same device of the onnx session for zero copy
-                        input_tensor = inputs.to(device_str).contiguous()
+                    # Moving the input on the same device of the onnx session for zero copy
+                    input_tensor = inputs.to(device_str).contiguous()
 
-                        # Pre allocate output tensor on gpu
-                        output_shape = (batch_size, output_num_classes)
-                        onnx_output_tensor = torch.empty(output_shape, 
-                                                        dtype=torch.float32, 
-                                                        device=device_name).contiguous()
+                    # Pre allocate output tensor on gpu
+                    output_shape = (batch_size, output_num_classes)
+                    onnx_output_tensor = torch.empty(output_shape, 
+                                                    dtype=torch.float32, 
+                                                    device=device_name).contiguous()
 
-                        # Binding Input and Outputs
-                        io_binding.bind_input(
-                            name=input_name,
-                            device_type='cuda',
-                            device_id=0,
-                            element_type=input_type,
-                            shape=tuple(input_tensor.shape),
-                            buffer_ptr=input_tensor.data_ptr()
-                        )
-                        io_binding.bind_output(
-                            name=output_name,
-                            device_type='cuda',
-                            device_id=0,
-                            element_type=output_type,
-                            shape=tuple(onnx_output_tensor.shape),
-                            buffer_ptr=onnx_output_tensor.data_ptr()
-                        )
+                    # Binding Input and Outputs
+                    io_binding.bind_input(
+                        name=input_name,
+                        device_type='cuda',
+                        device_id=0,
+                        element_type=input_type,
+                        shape=tuple(input_tensor.shape),
+                        buffer_ptr=input_tensor.data_ptr()
+                    )
+                    io_binding.bind_output(
+                        name=output_name,
+                        device_type='cuda',
+                        device_id=0,
+                        element_type=output_type,
+                        shape=tuple(onnx_output_tensor.shape),
+                        buffer_ptr=onnx_output_tensor.data_ptr()
+                    )
 
-                        # Run inference with binding options
-                        ort_session.run_with_iobinding(io_binding)
+                    # Run inference with binding options
+                    ort_session.run_with_iobinding(io_binding)
 
-                    elif device_name == "cpu":
+                elif device_name == "cpu":
 
-                        input_as_numpy = inputs.numpy()
+                    input_as_numpy = inputs.numpy()
 
-                        ort_input_value = ort.OrtValue.ortvalue_from_numpy(input_as_numpy)
+                    ort_input_value = ort.OrtValue.ortvalue_from_numpy(input_as_numpy)
 
-                        # Binding inputs and outputs on cpu
-                        io_binding.bind_input(
-                            name=input_name,
-                            device_type='cpu',
-                            device_id=0,  
-                            element_type=input_type,
-                            shape=tuple(input_as_numpy.shape),
-                            buffer_ptr=input_as_numpy.ctypes.data 
-                        )
-                        io_binding.bind_output(output_name, device_type = 'cpu',
-                                                device_id=0)
+                    # Binding inputs and outputs on cpu
+                    io_binding.bind_input(
+                        name=input_name,
+                        device_type='cpu',
+                        device_id=0,  
+                        element_type=input_type,
+                        shape=tuple(input_as_numpy.shape),
+                        buffer_ptr=input_as_numpy.ctypes.data 
+                    )
+                    io_binding.bind_output(output_name, device_type = 'cpu',
+                                            device_id=0)
 
-                        #Arena + Weights
-                        memory_before = process.memory_info().rss
+                    #Arena + Weights
+                    memory_before = process.memory_info().rss
 
-                        ort_session.run_with_iobinding(io_binding)
+                    ort_session.run_with_iobinding(io_binding)
 
-                        memory_after = process.memory_info().rss
+                    memory_after = process.memory_info().rss
 
-                        if memory_after - memory_before > 0:
-                            max_memory_arena_allocated += memory_after - memory_before 
+                    if memory_after - memory_before > 0:
+                        max_memory_arena_allocated += memory_after - memory_before 
 
-                        # Get outputs and reconvert into torch tensors
-                        onnx_outputs_ort = io_binding.get_outputs()
-                        numpy_output = onnx_outputs_ort[0].numpy()
-                        onnx_outputs_tensor = torch.from_numpy(numpy_output)
+                    # Get outputs and reconvert into torch tensors
+                    onnx_outputs_ort = io_binding.get_outputs()
+                    numpy_output = onnx_outputs_ort[0].numpy()
+                    onnx_outputs_tensor = torch.from_numpy(numpy_output)
 
-                    # Cleaning binding for next iteration
-                    io_binding.clear_binding_inputs()
-                    io_binding.clear_binding_outputs()
+                # Cleaning binding for next iteration
+                io_binding.clear_binding_inputs()
+                io_binding.clear_binding_outputs()
 
-                    loss = criterion(onnx_outputs_tensor, labels)
-                    running_loss += loss.item() * batch_size
-                    predicted_indices = torch.argmax(onnx_outputs_tensor, dim=1)
-                    total += labels.shape[0]
-                    correct += (predicted_indices == labels).sum().item()
+                loss = criterion(onnx_outputs_tensor, labels)
+                running_loss += loss.item() * batch_size
+                predicted_indices = torch.argmax(onnx_outputs_tensor, dim=1)
+                total += labels.shape[0]
+                correct += (predicted_indices == labels).sum().item()
 
             # Get profile path
             profile_file_path = ort_session.end_profiling()
