@@ -21,10 +21,6 @@
                     "description": "If the model considered is native or custom.",
                     "type": "boolean"
                 },
-                "distilled":{
-                    "description": "If the model is distilled or not.",
-                    "type": "boolean"
-                },
                 "weights_path": {
                     "description": "The file path of the model's weights.",
                     "type": "string",
@@ -59,14 +55,13 @@
                     "type": "string"
                 }
             },
-
             "anyOf": [
                 {
                     "properties":{"native": {"const": true}}
                 },
 
                 {
-                    "required":["module","distilled","weights_path","class_name","image_size","num_classes","task","weights_class"]
+                    "required":["module","weights_path","class_name","image_size","num_classes","task","weights_class"]
                 }
             ]
         },
@@ -148,9 +143,15 @@
         },
         "maxItems": 1
 
+    },
+
+    "repetitions":{
+        "description": "Repetition for each couple (Model, Optimization) in the DoE.",
+        "type": "integer",
+        "exclusiveMinimum": 1
     }   
 },
 
-"required": ["models", "optimizations", "dataset"],
+"required": ["models", "optimizations", "dataset", "repetitions"],
 "additionalProperties": false
 }

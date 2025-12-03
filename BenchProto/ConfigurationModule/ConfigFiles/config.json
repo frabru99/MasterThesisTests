@@ -4,7 +4,6 @@
             "module": "torchvision.models",
             "model_name": "mobilenet_v2",
             "native": false,
-            "distilled": false,
             "weights_path": "ModelData/Weights/mobilenet_v2.pth",
             "device": "cpu",
             "class_name": "mobilenet_v2",
@@ -18,7 +17,6 @@
             "module": "torchvision.models",
             "model_name": "efficientnet",
             "native": true,
-            "distilled": false,
             "weights_path": "./ModelData/Weights/casting_efficientnet_b0.pth",
             "device": "cpu",
             "class_name": "efficientnet_b0",
@@ -49,5 +47,6 @@
     "dataset": {
         "data_dir": "ModelData/Dataset/casting_data",
         "batch_size": 32
-    }
+    },
+    "repetitions": 2
 }

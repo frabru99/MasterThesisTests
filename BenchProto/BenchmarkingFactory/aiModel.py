@@ -348,7 +348,7 @@ class AIModel():
 
         n_total_images = len(input_data.dataset)
         num_batches = len(input_data)
-        logger.info(f"In this dataset there are {n_total_images} images across {num_batches} batches")
+        logger.debug(f"In this dataset there are {n_total_images} images across {num_batches} batches")
         
         total = 0
         correct = 0
@@ -458,7 +458,7 @@ class AIModel():
         stats = CalculateStats.calculateStats(profile_file_path, num_batches, n_total_images, correct, total, running_loss)
 
         
-        CalculateStats.printStats(stats, f" {model_name} STATS ")            
+        CalculateStats.printStats(stats, f" {model_name.upper()} STATS ")            
 
         logger.debug(f"<----- [AIMODEL MODULE] RUN INFERENCE\n")
 

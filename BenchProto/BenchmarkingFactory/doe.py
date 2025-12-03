@@ -8,7 +8,6 @@ import os
 import torch
 import json
 import gc
-from json import load
 import traceback
 from pathlib import Path
 from statsmodels.formula.api import ols
@@ -19,7 +18,8 @@ import statsmodels.api as sm
 from statsmodels.graphics.factorplots import interaction_plot
 from concurrent.futures import ProcessPoolExecutor, TimeoutError
 from multiprocessing import Process, SimpleQueue, set_start_method
-from Utils.utilsFunctions import subRun, cleanCaches
+from Utils.utilsFunctions import subRun, cleanCaches, initialPrint
+from rich.pretty import pprint
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -28,6 +28,10 @@ from Utils.utilsFunctions import cleanCaches
 #For Example Purposes
 from ProbeHardwareModule.probeHardwareManager import ProbeHardwareManager
 from PackageDownloadModule.packageDownloadManager import PackageDownloadManager
+
+
+torch.multiprocessing.set_sharing_strategy('file_system')
+
 
 class DoE():
     _instance = None #for Singleton
@@ -60,8 +64,9 @@ class DoE():
         if not hasattr(self, "created"):
             self.created=True #After that the first object is initialized, we'll not initialize another one. 
             self.__initialized=False
+            self.__ran=False
             self.__config_id = config_id
-            self.__repetitions = 2 # Must be added to the general config
+            self.__repetitions = config["repetitions"] # Must be added to the general config
             self.__model_info=config["models"]
             self.__optimizations_info=config["optimizations"]
             self.__dataset_info = config["dataset"]
@@ -158,7 +163,7 @@ class DoE():
 
         """
 
-
+        initialPrint("DESIGN OF EXPERIMENTS\n")
         models_list = []
         for model_name in self.__models.keys():
             models_list.append(model_name)
@@ -169,13 +174,20 @@ class DoE():
 
         design = list(product(models_list, optimization_list))
 
+        self.__printDesign(design)
         full_design = []
         for _ in range(self.__repetitions):
             full_design.extend(design)
 
-        print(f"CREATED DESIGN: {full_design}")
-
         return full_design
+
+    def __printDesign(self, design:list):
+        print('\x1b[32m' +f"{'MODEL NAME':<20}\t{'OPTIMIZATION':<20}\tREPETITIONS" + '\x1b[37m')
+        for model, optimization in design:
+            print(f"{model:<20}\t{optimization:<20}\t{self.__repetitions}")
+
+        print("\n")
+
 
 
     def initializeDoE(self):
@@ -190,6 +202,7 @@ class DoE():
                 - None
         """
 
+        initialPrint("OPTIMIZATIONS APPLY")
         optimized_models = []
         
 
@@ -216,11 +229,10 @@ class DoE():
         self.__initialized=True
 
 
-
-     
-
     def run(self):
         assert self.__initialized, "The DoE should be initialized in order to run."
+
+        initialPrint("INFERENCES")
 
         try:
             set_start_method('spawn', force=True)
@@ -230,12 +242,50 @@ class DoE():
         temp_dir = PROJECT_ROOT / "temp_results"
         temp_dir.mkdir(exist_ok=True)
     
-        for model in self.__models:
-            #for inferece_loader_name, inferece_loader in self.__inference_loaders.items():
-            inference_loader = self.__inference_loaders[model.getInfo("model_name")]
-            logger.info(f"MODEL NAME: {model.getInfo('model_name')} - INFERENCE LOADER {inference_loader}")
+        results_list = []
+
+        for i, (mod_name, opt_name) in enumerate(self.__design):
+
+            print("\n\t"+ "\x1b[36m" + f" RUN {i+1} / {len(self.__design)}, : {mod_name} | {opt_name}" + "\x1b[37m" + "\n")
+
             cleanCaches()
-            model.runInference(inference_loader, self.__config_id)
+
+            try:
+                aimodel = self.__models[mod_name][opt_name]
+            except KeyError:
+                logger.error(f"Model {mod_name} with Optimization {opt_name} not found!")
+                continue
+
+            internal_name = aimodel.getInfo('model_name')
+            inference_loader = self.__inference_loaders[internal_name]
+
+            # Temp path creation
+            temp_file_path = temp_dir / f"run_{i}.json"
+
+            # Clean up if it exists from a previous crash
+            if temp_file_path.exists():
+                os.remove(temp_file_path)
+
+
+            sub_process_args = (aimodel, inference_loader, self.__config_id, temp_file_path)
+
+            #Create the subProcess to execute in a separated memory space
+            #In order to clean caches between executions
+            sub_process_run = Process(target = subRun, args=sub_process_args)
+
+            sub_process_run.start()
+            sub_process_run.join()
+
+            if sub_process_run.is_alive():
+                 sub_process_run.terminate()
+            
+            del sub_process_run
+            gc.collect()
+
+            if temp_file_path.exists():
+                try:
+                    with open(temp_file_path, 'r') as f:
+                        stats = json.load(f)
                     
                     # Delete the temp file now that we have the data
                     os.remove(temp_file_path)
@@ -254,36 +304,38 @@ class DoE():
                     logger.error("Failed to decode JSON from worker output.")
             else:
                 logger.error("Worker finished but NO output file was found. (Process likely crashed silently)")
+                return
+
+        self.__ran=True
+
+
 
 
     def runAnova(self):
+        assert self.__ran, "The DoE should be executed with .run before running ANOVA."
+
+        initialPrint("ANOVA ANALYSIS\n")
 
         file_path = str(PROJECT_ROOT / "doe_results_raw.csv")
         try:
             df = pd.read_csv(file_path)
-            print("Data loaded successfully.")
         except FileNotFoundError:
-            print(f"Error: The file {file_path} was not found.")
-            exit()
+            logger.critical(f"Error: The file {file_path} was not found.")
+            exit(0)
 
-        # 2. Inspect and Clean Data
-        # Ensure columns are named correctly for the formula (no spaces)
-        # Based on your previous logs, your columns are: 'Model', 'Optimization', 'Total_Inference_Time_ms'
-        print(df.head())
+        
+        pprint(df.head())
 
-        # 3. Perform Two-Way ANOVA
-        # Formula: Response ~ C(Factor1) + C(Factor2) + C(Factor1):C(Factor2)
-        # C() indicates that the variable is Categorical
+        
         formula = 'Total_Inference_Time_ms ~ C(Model) + C(Optimization) + C(Model):C(Optimization)'
 
         model = ols(formula, data=df).fit()
         anova_table = sm.stats.anova_lm(model, typ=2)
 
-        print("\n--- ANOVA Results (Type II) ---")
-        print(anova_table)
+        initialPrint("RESULTS\n")
+        pprint(anova_table)
 
-        # 4. Visualization: Interaction Plot
-        # This helps see if the effect of Optimization depends on the Model
+
         plt.figure(figsize=(10, 6))
         interaction_plot(x=df['Optimization'], 
                         trace=df['Model'], 
@@ -302,7 +354,6 @@ class DoE():
 
 if __name__ == "__main__":
 
-    torch.multiprocessing.set_sharing_strategy('file_system')
 
     config = {
         "models": [
@@ -310,7 +361,6 @@ if __name__ == "__main__":
                 "module": "torchvision.models",
                 "model_name": "mobilenet_v2",
                 "native": False,
-                "distilled": False,
                 "weights_path": "ModelData/Weights/mobilenet_v2.pth",
                 "device": "cpu",
                 "class_name": "mobilenet_v2",
@@ -342,7 +392,8 @@ if __name__ == "__main__":
         "dataset": {
             "data_dir": "ModelData/Dataset/casting_data",
             "batch_size": 32
-        }
+        },
+        "repetitions": 2
     }
 
     probe = ProbeHardwareManager()

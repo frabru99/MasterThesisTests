@@ -8,6 +8,7 @@ import gc
 from difflib import SequenceMatcher
 from pathlib import Path
 from subprocess import run, DEVNULL
+from json import dump
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
@@ -94,7 +95,7 @@ def cleanCaches():
     """
     try:
 
-        result = run([str(clean_caches_script_bash)z], check=True, stdout=DEVNULL)
+        result = run([str(clean_caches_script_bash)], check=True, stdout=DEVNULL)
 
         if result.returncode==0:
             logger.info("CACHE CLEANED...")
@@ -109,21 +110,22 @@ def subRun(aimodel, inference_loader, config_id, output_file_path):
     try:
         stats = aimodel.runInference(inference_loader, config_id)
 
-        print(f"Returned stats: {stats}\n")
-
         del aimodel
         del inference_loader
 
         gc.collect()
         
         with open(output_file_path, 'w') as f:
-            json.dump(stats, f, indent=4)
+            dump(stats, f, indent=4)
                 
-        print(f"WORKER: Stats successfully written to {output_file_path}")
+        logger.info(f"WORKER: Stats successfully written to {output_file_path}")
 
     except Exception as e:
-        logger.error(f"SubProcess CRASHED")
+        logger.error(f"SubProcess CRASHED: {e}")
 
 
+
+def initialPrint(topic: str) -> None:
+    print("\n\t\t"+ '\x1b[35m' + topic + '\033[0m')
 
 
