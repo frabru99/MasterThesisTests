@@ -1,18 +1,18 @@
-
 from logging import config, getLogger
 from logging_config import TEST_LOGGING_CONFIG
-config.dictConfig(TEST_LOGGING_CONFIG)
-logger = getLogger(__name__)
+config.dictConfig(TEST_LOGGING_CONFIG) #logger config
+logger = getLogger(__name__) #logger
 
 import difflib
 import gc
 from difflib import SequenceMatcher
 from pathlib import Path
-import json
 from subprocess import run, DEVNULL
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
 clean_caches_script_bash = "./" / PROJECT_ROOT / "Utils/scripts/cleancache.sh"
+
 
 def compareModelArchitecture(model1, model2):
     # Convert models to string representations
@@ -94,7 +94,7 @@ def cleanCaches():
     """
     try:
 
-        result = run([str(clean_caches_script_bash)], check=True, stdout=DEVNULL)
+        result = run([str(clean_caches_script_bash)z], check=True, stdout=DEVNULL)
 
         if result.returncode==0:
             logger.info("CACHE CLEANED...")

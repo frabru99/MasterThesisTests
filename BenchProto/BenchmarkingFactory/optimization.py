@@ -11,6 +11,8 @@ import torch_pruning as tp
 import torch.nn as nn
 import torch.nn.utils.prune as prune
 import torch.quantization as tq
+import os
+import gc
 from abc import ABC, abstractmethod
 from pathlib import Path
 from copy import deepcopy
@@ -199,10 +201,10 @@ class QuantizationOptimization(Optimization):
         Input:
             -N.A.
 
-        Output:
-            -optimized_model: aiModel optimized with dynamic or static quantization
-        """
-        
+            Output:
+                -optimized_model: aiModel optimized with dynamic or static quantization
+            """
+            
         logger.debug(f"-----> [OPTIMIZATION MODULE] APPLY QUANTIZATION OPTIMIZATION")
 
         os.environ["OMP_NUM_THREADS"] = "1"

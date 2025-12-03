@@ -13,7 +13,6 @@ from Utils.utilsFunctions import getHumanReadableValue
 
 
 
-
 class CalculateStats:
 
     def printStats(input: dict, topic: str) -> None:

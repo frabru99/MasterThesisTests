@@ -23,7 +23,7 @@ from Utils.utilsFunctions import subRun, cleanCaches
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-
+from Utils.utilsFunctions import cleanCaches
 
 #For Example Purposes
 from ProbeHardwareModule.probeHardwareManager import ProbeHardwareManager
@@ -230,51 +230,12 @@ class DoE():
         temp_dir = PROJECT_ROOT / "temp_results"
         temp_dir.mkdir(exist_ok=True)
     
-        results_list = []
-
-        for i, (mod_name, opt_name) in enumerate(self.__design):
-
-            logger.info(f"--- RUN {i+1} / {len(self.__design)}: {mod_name} | {opt_name} ---")
-
-            # Pulizia cache
+        for model in self.__models:
+            #for inferece_loader_name, inferece_loader in self.__inference_loaders.items():
+            inference_loader = self.__inference_loaders[model.getInfo("model_name")]
+            logger.info(f"MODEL NAME: {model.getInfo('model_name')} - INFERENCE LOADER {inference_loader}")
             cleanCaches()
-
-            try:
-                aimodel = self.__models[mod_name][opt_name]
-            except KeyError:
-                logger.error(f"Model {mod_name} with Optimization {opt_name} not found!")
-                continue
-
-            internal_name = aimodel.getInfo('model_name')
-            inference_loader = self.__inference_loaders[internal_name]
-
-            # Temp path creation
-            temp_file_path = temp_dir / f"run_{i}.json"
-
-            # Clean up if it exists from a previous crash
-            if temp_file_path.exists():
-                os.remove(temp_file_path)
-
-
-            sub_process_args = (aimodel, inference_loader, self.__config_id, temp_file_path)
-
-            #Create the subProcess to execute in a separated memory space
-            #In order to clean caches between executions
-            sub_process_run = Process(target = subRun, args=sub_process_args)
-
-            sub_process_run.start()
-            sub_process_run.join()
-
-            if sub_process_run.is_alive():
-                 sub_process_run.terminate()
-            
-            del sub_process_run
-            gc.collect()
-
-            if temp_file_path.exists():
-                try:
-                    with open(temp_file_path, 'r') as f:
-                        stats = json.load(f)
+            model.runInference(inference_loader, self.__config_id)
                     
                     # Delete the temp file now that we have the data
                     os.remove(temp_file_path)
