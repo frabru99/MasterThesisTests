@@ -3,15 +3,10 @@ from logging_config import TEST_LOGGING_CONFIG
 config.dictConfig(TEST_LOGGING_CONFIG)
 logger = getLogger(__name__)
 
+from os import remove
 from json import JSONDecodeError, load
 from numpy import percentile
-from os import remove
 from Utils.utilsFunctions import getHumanReadableValue
-
-
-
-
-
 
 class CalculateStats:
 

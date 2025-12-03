@@ -3,24 +3,19 @@ from logging_config import TEST_LOGGING_CONFIG
 config.dictConfig(TEST_LOGGING_CONFIG)
 logger = getLogger(__name__)
 
-import onnx
+
 import os
 import gc
+import onnx
 import torch
 import torch_pruning as tp
 import torch.nn as nn
 import torch.nn.utils.prune as prune
-import torch.quantization as tq
-import os
-import gc
 from abc import ABC, abstractmethod
 from pathlib import Path
 from copy import deepcopy
-from torch.quantization import quantize_fx
-from onnxruntime.tools.symbolic_shape_infer import SymbolicShapeInference
 from onnxruntime import quantization
-from onnxruntime.quantization import quantize_dynamic, QuantType
-from onnxruntime.quantization.shape_inference import quant_pre_process
+from onnxruntime.tools.symbolic_shape_infer import SymbolicShapeInference
 from BenchmarkingFactory.calibrationDataReader import CustomCalibrationDataReader
 from BenchmarkingFactory.dataWrapper import DataWrapper
 from BenchmarkingFactory.aiModel import AIModel
@@ -289,8 +284,8 @@ class QuantizationOptimization(Optimization):
             calibration_data_reader=qdr,
             quant_format = q_format,
             per_channel=False,
-            weight_type = QuantType.QInt8,
-            activation_type=QuantType.QUInt8,
+            weight_type = quantization.QuantType.QInt8,
+            activation_type= quantization.QuantType.QUInt8,
             extra_options=q_static_opts
         )
 
@@ -394,13 +389,13 @@ if __name__ == "__main__":
     # -------- TEST WITH BASE MODEL ---------------
 
     efficient_path = str(model_weights_path / "casting_efficientnet_b0.pth")
+    config_id = "TEST_CONFIG_ID"
 
     # Faking user input
     efficient_info = {
         'module': 'torchvision.models',
         'model_name': "efficientnet_v2",
         'native': True,
-        'distilled': 'tf_efficientnet_b0.ns_jft_in1k',
         'weights_path': efficient_path,
         'device': "cpu",
         'class_name': 'efficientnet_b0',
@@ -415,7 +410,6 @@ if __name__ == "__main__":
         'module': 'torchvision.models',
         'model_name': "mobilenet_v2",
         'native': True,
-        'distilled': False,
         'weights_path': mobile_path,
         'device': "cpu",
         'class_name': 'mobilenet_v2',
@@ -437,16 +431,16 @@ if __name__ == "__main__":
     inference_loader = dataset.getLoader()
 
     # Inference with unpruned model
-    efficientnet.createOnnxModel(inference_loader)
-    efficientnet.runInference(inference_loader)
+    efficientnet.createOnnxModel(inference_loader, config_id)
+    efficientnet.runInference(inference_loader, config_id)
 
     # Base model for mobilenet
     mobilenet = AIModel(mobile_info)
     mobilenet_dataset = DataWrapper()
     mobilenet_dataset.loadInferenceData(model_info = mobile_info, dataset_info = dataset_info)
     mobilenet_loader = dataset.getLoader()
-    mobilenet.createOnnxModel(mobilenet_loader)
-    mobilenet.runInference(mobilenet_loader)
+    mobilenet.createOnnxModel(mobilenet_loader, config_id)
+    mobilenet.runInference(mobilenet_loader, config_id)
 
     # # -----------------------------------------------
 
@@ -506,14 +500,20 @@ if __name__ == "__main__":
 
     # ---------- TEST WITH DISTILLED MODEL ---------------
 
-    distillation_info = {}
+    distillation_info = {
+        'method': True,
+        'distilled_paths': {
+            'mobilenet_v2': '/home/salvatore/Desktop/MasterThesis/MasterThesisTests/BenchProto/ModelData/Weights/mobilenet_v2_distilled.pth',
+            'efficientnet': '/home/salvatore/Desktop/MasterThesis/MasterThesisTests/BenchProto/ModelData/Weights/efficientnet_b0_distilled.pth'
+        }
+    }
 
     distillation_optimizator = DistillationOptimization(distillation_info)
     distillation_optimizator.setAIModel(efficientnet)  
     distilled_efficientnet = distillation_optimizator.applyOptimization()  
 
-    distilled_efficientnet.createOnnxModel(inference_loader)
-    distilled_efficientnet.runInference(inference_loader)
+    distilled_efficientnet.createOnnxModel(inference_loader, config_id)
+    distilled_efficientnet.runInference(inference_loader, config_id)
 
     # -----------------------------------------------
 

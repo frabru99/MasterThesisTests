@@ -4,7 +4,6 @@
             "module": "torchvision.models",
             "model_name": "mobilenet_v2",
             "native": false,
-            "distilled": false,
             "weights_path": "ModelData/Weights/mobilenet_v2.pth",
             "device": "cpu",
             "class_name": "mobilenet_v2",
@@ -18,7 +17,6 @@
             "module": "torchvision.models",
             "model_name": "efficientnet",
             "native": true,
-            "distilled": false,
             "weights_path": "./ModelData/Weights/casting_efficientnet_b0.pth",
             "device": "cpu",
             "class_name": "efficientnet_b0",
@@ -41,8 +39,8 @@
         "Distillation": {
             "method": true,
             "distilled_paths": {
-                "mobilenet_v2": "/home/frabru99/Sync/MasterThesisTests/BenchProto/ModelData/Weights/mobilenet_v2_distilled.pth",
-                "efficientnet": "/home/frabru99/Sync/MasterThesisTests/BenchProto/ModelData/Weights/efficientnet_b0_distilled.pth"
+                "mobilenet_v2": "/home/salvatore/Desktop/MasterThesis/MasterThesisTests/BenchProto/ModelData/Weights/mobilenet_v2_distilled.pth",
+                "efficientnet": "/home/salvatore/Desktop/MasterThesis/MasterThesisTests/BenchProto/ModelData/Weights/efficientnet_b0_distilled.pth"
             }
         }
     },

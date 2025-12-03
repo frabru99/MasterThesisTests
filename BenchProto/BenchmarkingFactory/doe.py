@@ -3,23 +3,22 @@ from logging_config import TEST_LOGGING_CONFIG
 config.dictConfig(TEST_LOGGING_CONFIG)
 logger = getLogger(__name__)
 
-import pandas as pd
+
 import os
 import torch
 import json
 import gc
-from json import load
 import traceback
 from pathlib import Path
+import pandas as pd
+from pandas import DataFrame
 from statsmodels.formula.api import ols
 from itertools import product
-from pandas import DataFrame
 import matplotlib.pyplot as plt
 import statsmodels.api as sm
 from statsmodels.graphics.factorplots import interaction_plot
-from concurrent.futures import ProcessPoolExecutor, TimeoutError
-from multiprocessing import Process, SimpleQueue, set_start_method
-from Utils.utilsFunctions import subRun, cleanCaches
+from multiprocessing import Process, SimpleQueue, set_start_method, get_context #trying this one
+from Utils.utilsFunctions import subRun, subRunQueue, cleanCaches
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -28,6 +27,8 @@ from Utils.utilsFunctions import cleanCaches
 #For Example Purposes
 from ProbeHardwareModule.probeHardwareManager import ProbeHardwareManager
 from PackageDownloadModule.packageDownloadManager import PackageDownloadManager
+
+torch.multiprocessing.set_sharing_strategy('file_system')
 
 class DoE():
     _instance = None #for Singleton
@@ -215,11 +216,101 @@ class DoE():
         #self.__models.extend(optimized_models)
         self.__initialized=True
 
+    def __runSingleBenchmark(self, aimodel, inference_loader, temp_dir):
+        """
+        Run a single Benchmark for a given model and a given loader
+        the function writes to a temp with a subprocess, due to cache cleaning
+
+        Input: 
+            - aimodel: aiModel class passed from the design
+            - inference_loader: Inference_loader used to execute inferences
+            - temp_dir: path where to save temporarily
+
+        Output:
+            - stats: inference stats retrieved from temporary file
+        """
+
+        # Temp path creation
+        temp_file_path = temp_dir / f"temp_run.json"
+
+        # Clean up if it exists from a previous crash
+        if temp_file_path.exists():
+            os.remove(temp_file_path)
+
+        #Create the subProcess to execute in a separated memory space
+        #In order to clean caches between executions
+        sub_process_args = (aimodel, inference_loader, self.__config_id, temp_file_path)
+        sub_process_run = Process(target = subRun, args=sub_process_args)
+
+        sub_process_run.start()
+        sub_process_run.join()
+
+        if sub_process_run.is_alive():
+            logger.warning(f"Pay attention the subprocess didn't terminate. Forced Termination")
+            sub_process_run.terminate()
+        
+        del sub_process_run
+        gc.collect()
+
+        # Retrieving data
+        if temp_file_path.exists():
+            try:
+                with open(temp_file_path, 'r') as f:
+                    stats = json.load(f)
+                
+                # Delete the temp file now that we have the data
+                os.remove(temp_file_path)
+
+                return stats
+
+            except json.JSONDecodeError:
+                logger.error("Failed to decode JSON from worker output.")
+                return None
+        else:
+            logger.error("Worker finished but NO output file was found. (Process likely crashed silently)")
+
+    def __runProcessBenchmark(self, aimodel, inference_loader):
+
+        # WE HAVE TO DO THE ALTERNATIVE FUNCTION OF runSingleBenchmark
+        ctx = get_context("spawn")
+        queue = ctx.Queue()
+
+        sub_process_args = (aimodel, inference_loader, self.__config_id, queue)
+        sub_process = ctx.Process(target=subRunQueue, args=sub_process_args)
+        sub_process.start()
+
+        stats = None
+        try:
+            logger.debug(f"IM TRYING TO DO THE QUEUE GET")
+            result_packet = queue.get()
+            logger.debug(f"QUEUE GET DONE !!!!")
+    
+            if result_packet['status'] == "success":
+                stats = result_packet['data']
+            else:
+                logger.error(f"Worker reported error: {result_packet.get('message')}")
+
+        except Exception as e:
+            logger.error(f"Did not receive data from subprocess (Timeout or Crash): {e}")
+
+        sub_process.join()
+
+        if sub_process.is_alive():
+            logger.warning("Subprocess didn't terminate naturally. Forcing termination.")
+            sub_process.terminate()
+
+        sub_process.close() # Release file descriptors
+        del sub_process
+        gc.collect()
+
+        return stats
 
 
-     
+    def runDesign(self):
+        """
+        Run a Specific design set in the Doe Instance
+        """
 
-    def run(self):
         assert self.__initialized, "The DoE should be initialized in order to run."
 
         try:
@@ -230,60 +321,67 @@ class DoE():
         temp_dir = PROJECT_ROOT / "temp_results"
         temp_dir.mkdir(exist_ok=True)
     
-        for model in self.__models:
-            #for inferece_loader_name, inferece_loader in self.__inference_loaders.items():
-            inference_loader = self.__inference_loaders[model.getInfo("model_name")]
-            logger.info(f"MODEL NAME: {model.getInfo('model_name')} - INFERENCE LOADER {inference_loader}")
+        results_list = []
+        for i, (mod_name, opt_name) in enumerate(self.__design):
+
+            logger.info(f"--- RUN {i+1} / {len(self.__design)}: {mod_name} | {opt_name} ---")
+
+            # Cleaning caches to make independent data
             cleanCaches()
-            model.runInference(inference_loader, self.__config_id)
-                    
-                    # Delete the temp file now that we have the data
-                    os.remove(temp_file_path)
 
-                    # Extracting data from stats
-                    results_list.append({
-                        "Model": mod_name,
-                        "Optimization": opt_name,
-                        "Total_Inference_Time_ms": stats["Total 'kernel' inference time"]
+            try:
+                aimodel = self.__models[mod_name][opt_name]
+            except KeyError:
+                logger.error(f"Model {mod_name} with Optimization {opt_name} not found!")
+                continue
 
-                    })
+            internal_name = aimodel.getInfo('model_name')
+            inference_loader = self.__inference_loaders[internal_name]
 
-                    df = DataFrame(results_list)
-                    df.to_csv("doe_results_raw.csv", index = False)
-                except json.JSONDecodeError:
-                    logger.error("Failed to decode JSON from worker output.")
+            stats = self.__runProcessBenchmark(aimodel, inference_loader)
+
+            if stats:
+                results_list.append({
+                    "Model": mod_name,
+                    "Optimization": opt_name,
+                    "Total_Inference_Time_ms": stats["Total 'kernel' inference time"]
+
+                })
             else:
-                logger.error("Worker finished but NO output file was found. (Process likely crashed silently)")
+                logger.error(f"During single inference something went wrong!")
 
+
+        df = DataFrame(results_list)
+        df.to_csv("doe_results_raw.csv", index = False)
 
     def runAnova(self):
+        """
+        Run and print the results of a two way anova
+        it gets the data from a csv
+        """
 
         file_path = str(PROJECT_ROOT / "doe_results_raw.csv")
         try:
             df = pd.read_csv(file_path)
-            print("Data loaded successfully.")
+            logger.info("Data loaded successfully.")
         except FileNotFoundError:
-            print(f"Error: The file {file_path} was not found.")
+            logger.error(f"Error: The file {file_path} was not found.")
             exit()
 
-        # 2. Inspect and Clean Data
-        # Ensure columns are named correctly for the formula (no spaces)
-        # Based on your previous logs, your columns are: 'Model', 'Optimization', 'Total_Inference_Time_ms'
-        print(df.head())
+        # Columns should be: 'Model', 'Optimization', 'Total_Inference_Time_ms'
+        logger.debug(f"Headers of created data [ANOVA TABLE]:")
+        logger.debug(df.head())
 
-        # 3. Perform Two-Way ANOVA
-        # Formula: Response ~ C(Factor1) + C(Factor2) + C(Factor1):C(Factor2)
-        # C() indicates that the variable is Categorical
+        # Perform Two-Way ANOVA
         formula = 'Total_Inference_Time_ms ~ C(Model) + C(Optimization) + C(Model):C(Optimization)'
 
         model = ols(formula, data=df).fit()
         anova_table = sm.stats.anova_lm(model, typ=2)
 
-        print("\n--- ANOVA Results (Type II) ---")
-        print(anova_table)
+        logger.info("--- ANOVA Results (Type II) ---")
+        logger.info(f"\n{anova_table}")
 
-        # 4. Visualization: Interaction Plot
-        # This helps see if the effect of Optimization depends on the Model
+        # Visualization: Interaction Plot
         plt.figure(figsize=(10, 6))
         interaction_plot(x=df['Optimization'], 
                         trace=df['Model'], 
@@ -296,7 +394,9 @@ class DoE():
         plt.xlabel('Optimization Technique')
         plt.ylabel('Inference Time (ms)')
         plt.grid(True)
-        plt.show()
+        
+        plt.savefig(str(PROJECT_ROOT / "Plots" / "interaction_plot.png"))
+        logger.info("Plot saved as interaction_plot.png")
 
         
 
@@ -310,7 +410,6 @@ if __name__ == "__main__":
                 "module": "torchvision.models",
                 "model_name": "mobilenet_v2",
                 "native": False,
-                "distilled": False,
                 "weights_path": "ModelData/Weights/mobilenet_v2.pth",
                 "device": "cpu",
                 "class_name": "mobilenet_v2",
@@ -368,20 +467,10 @@ if __name__ == "__main__":
     doe = DoE(config, config_id)
 
     doe.initializeDoE()
-    doe.run()
+    doe.runDesign()
     doe.runAnova()
 
-
-
     #doe.getString()
-
-
-    
-
-    
-
-
-
 
 
 
