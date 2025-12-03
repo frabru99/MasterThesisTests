@@ -7,7 +7,6 @@ import difflib
 from difflib import SequenceMatcher
 from pathlib import Path
 from subprocess import run, DEVNULL
-from time import sleep
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
