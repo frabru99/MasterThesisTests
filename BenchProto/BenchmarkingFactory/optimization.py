@@ -4,6 +4,8 @@ config.dictConfig(TEST_LOGGING_CONFIG)
 logger = getLogger(__name__)
 
 import onnx
+import os
+import gc
 import torch
 import torch_pruning as tp
 import torch.nn as nn

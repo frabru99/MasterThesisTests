@@ -17,6 +17,7 @@ from torchvision import models
 from BenchmarkingFactory.dataWrapper import DataWrapper
 
 
+
 from psutil import Process
 from Utils.utilsFunctions import getHumanReadableValue
 from Utils.calculateStats import CalculateStats
@@ -440,27 +441,28 @@ class AIModel():
                 total += labels.shape[0]
                 correct += (predicted_indices == labels).sum().item()
 
-            # Get profile path
-            profile_file_path = ort_session.end_profiling()
+        # Get profile path
+        profile_file_path = ort_session.end_profiling()
 
 
-            if not profile_file_path:
-                logger.error(f"Profiling enabled but no file was generated.")
-                return {}
+        if not profile_file_path:
+            logger.error(f"Profiling enabled but no file was generated.")
+            return {}
 
-            logger.debug(f"Profile file generated: {profile_file_path}")
-            
-            # Get kernel stats
-            #logger.info(f"MEMORY ALLOCATED FOR THE SESSION: {getHumanReadableValue(memory_after_session-memory_before_session)}")
-            #logger.info(f"TOTAL MEMORY ALLOCATED THROUGH RUN (WEIGHTS + ARENA): {getHumanReadableValue(max_memory_arena_allocated)}")
-            stats = CalculateStats.calculateStats(profile_file_path, num_batches, n_total_images, correct, total, running_loss)
 
-            
-            CalculateStats.printStats(stats, f" {model_name} STATS ")            
+        logger.debug(f"Profile file generated: {profile_file_path}")
+        
+        # Get kernel stats
+        #logger.info(f"MEMORY ALLOCATED FOR THE SESSION: {getHumanReadableValue(memory_after_session-memory_before_session)}")
+        #logger.info(f"TOTAL MEMORY ALLOCATED THROUGH RUN (WEIGHTS + ARENA): {getHumanReadableValue(max_memory_arena_allocated)}")
+        stats = CalculateStats.calculateStats(profile_file_path, num_batches, n_total_images, correct, total, running_loss)
 
-            logger.debug(f"<----- [AIMODEL MODULE] RUN INFERENCE\n")
+        
+        CalculateStats.printStats(stats, f" {model_name} STATS ")            
 
-            return stats
+        logger.debug(f"<----- [AIMODEL MODULE] RUN INFERENCE\n")
+
+        return stats
 
     
 

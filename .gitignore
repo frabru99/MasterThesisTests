@@ -7,3 +7,5 @@ data/
 TestDatasets
 *.log
 BenchProto/ModelData/Dataset/*
+*.csv
+__pycache__

@@ -3,8 +3,23 @@ from logging_config import TEST_LOGGING_CONFIG
 config.dictConfig(TEST_LOGGING_CONFIG)
 logger = getLogger(__name__)
 
+import pandas as pd
+import os
+import torch
+import json
+import gc
 from json import load
+import traceback
 from pathlib import Path
+from statsmodels.formula.api import ols
+from itertools import product
+from pandas import DataFrame
+import matplotlib.pyplot as plt
+import statsmodels.api as sm
+from statsmodels.graphics.factorplots import interaction_plot
+from concurrent.futures import ProcessPoolExecutor, TimeoutError
+from multiprocessing import Process, SimpleQueue, set_start_method
+from Utils.utilsFunctions import subRun, cleanCaches
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -20,7 +35,7 @@ class DoE():
     #Singleton Management
     def __new__(cls, *args, **kwargs) -> object:
         """
-        Returns a new istance if isn't created.
+        Returns a new istance if isn't created.s
 
         Input: 
             -cls: the class
@@ -33,12 +48,20 @@ class DoE():
             cls._instance=super().__new__(cls)
         return cls._instance
 
+    ###################################################################
+
+    # TODO
+    # SOME DATA IN THE DOE CONFIG MUST BE ADDED TO THE GENERARL CONFIG
+
+    ###################################################################
+
 
     def __init__(self, config: dict, config_id: str):
         if not hasattr(self, "created"):
             self.created=True #After that the first object is initialized, we'll not initialize another one. 
             self.__initialized=False
             self.__config_id = config_id
+            self.__repetitions = 2 # Must be added to the general config
             self.__model_info=config["models"]
             self.__optimizations_info=config["optimizations"]
             self.__dataset_info = config["dataset"]
@@ -46,6 +69,8 @@ class DoE():
             self.__optimizations=self.__initializeListOfOptimizations(config["optimizations"])
             self.__dataset=self.__initializeDataset()
             self.__inference_loaders={}
+            self.__design = self.__initializeDesign()
+            self.__current_stats = None
         #metrics?
 
     def __initializeListOfModels(self, models: list) -> list:
@@ -60,16 +85,17 @@ class DoE():
 
         """
 
-        ai_models_list=[]
+        ai_models_dict={}
 
         for aiModelDict in models:
             logger.info(f"CREATING THE {aiModelDict['model_name']} MODEL...\n")
-            ai_models_list.append(aiModel.AIModel(aiModelDict))
+            ai_models_dict[aiModelDict['model_name']] = {}   
+            ai_models_dict[aiModelDict['model_name']]['Base'] = aiModel.AIModel(aiModelDict)
 
         logger.info(f"MODELS CREATED!\n")
 
 
-        return ai_models_list
+        return ai_models_dict
 
 
     def __initializeListOfOptimizations(self, optimizations: dict) -> list:
@@ -93,7 +119,7 @@ class DoE():
                 target_class = getattr(optimization, full_class_name)
 
                 optimization_object = target_class(optimizations[optimization_name])
-                optimization_object_list.append(optimization_object)
+                optimization_object_list.append((optimization_object, optimization_name))
                 logger.info(f"{full_class_name} ADDED!")
 
         except (FileNotFoundError,Exception) as e:
@@ -120,6 +146,37 @@ class DoE():
 
         return dataset_wrapper
 
+    def __initializeDesign(self) -> dict:
+        """
+            Initializes the Design of experiment combinations. 
+
+            Input:
+                None
+
+            Output:
+                - list of all possible combination in the experiments
+
+        """
+
+
+        models_list = []
+        for model_name in self.__models.keys():
+            models_list.append(model_name)
+
+        optimization_list = []
+        for opt_obj, opt_name in self.__optimizations:
+            optimization_list.append(opt_name)
+
+        design = list(product(models_list, optimization_list))
+
+        full_design = []
+        for _ in range(self.__repetitions):
+            full_design.extend(design)
+
+        print(f"CREATED DESIGN: {full_design}")
+
+        return full_design
+
 
     def initializeDoE(self):
         """
@@ -136,25 +193,26 @@ class DoE():
         optimized_models = []
         
 
-        for model in self.__models: #Iterating the base models. 
-            dataset = datawrapper.DataWrapper() #creating the dedicated dataWrapper for the model
-            dataset.loadInferenceData(model_info=model.getAllInfo(), dataset_info=self.__dataset_info)
+        for model_key, model_dict in self.__models.items(): #Iterating the base models. 
+            dataset = self.__dataset #creating the dedicated dataWrapper for the model
+            dataset.loadInferenceData(model_info=model_dict['Base'].getAllInfo(), dataset_info=self.__dataset_info)
             inference_loader = dataset.getLoader()
-            self.__inference_loaders[model.getInfo("model_name")]=inference_loader #N Base Models = N Loaders
-            model.createOnnxModel(inference_loader, self.__config_id)
+            self.__inference_loaders[model_dict['Base'].getInfo("model_name")]=inference_loader #N Base Models = N Loaders
+            model_dict['Base'].createOnnxModel(inference_loader, self.__config_id)
 
             #Optimized Model...
-            for optimizator in self.__optimizations:
-                optimizator.setAIModel(model)
+            for optimizator, op_name in self.__optimizations:
+                optimizator.setAIModel(model_dict['Base'])
                 optimized_model = optimizator.applyOptimization(inference_loader, self.__config_id)
 
                 if not optimized_model.getInfo("model_name").endswith("quantized"):
                     optimized_model.createOnnxModel(inference_loader, self.__config_id)
 
-                optimized_models.append(optimized_model)
+                #optimized_models.append(optimized_model)
+                model_dict[op_name] = optimized_model
                 self.__inference_loaders[optimized_model.getInfo("model_name")] = inference_loader
 
-        self.__models.extend(optimized_models)
+        #self.__models.extend(optimized_models)
         self.__initialized=True
 
 
@@ -164,6 +222,13 @@ class DoE():
     def run(self):
         assert self.__initialized, "The DoE should be initialized in order to run."
 
+        try:
+            set_start_method('spawn', force=True)
+        except RuntimeError:
+            pass # Context already set
+
+        temp_dir = PROJECT_ROOT / "temp_results"
+        temp_dir.mkdir(exist_ok=True)
     
         for model in self.__models:
             #for inferece_loader_name, inferece_loader in self.__inference_loaders.items():
@@ -172,12 +237,72 @@ class DoE():
             cleanCaches()
             model.runInference(inference_loader, self.__config_id)
                     
+                    # Delete the temp file now that we have the data
+                    os.remove(temp_file_path)
+
+                    # Extracting data from stats
+                    results_list.append({
+                        "Model": mod_name,
+                        "Optimization": opt_name,
+                        "Total_Inference_Time_ms": stats["Total 'kernel' inference time"]
+
+                    })
+
+                    df = DataFrame(results_list)
+                    df.to_csv("doe_results_raw.csv", index = False)
+                except json.JSONDecodeError:
+                    logger.error("Failed to decode JSON from worker output.")
+            else:
+                logger.error("Worker finished but NO output file was found. (Process likely crashed silently)")
 
 
+    def runAnova(self):
 
+        file_path = str(PROJECT_ROOT / "doe_results_raw.csv")
+        try:
+            df = pd.read_csv(file_path)
+            print("Data loaded successfully.")
+        except FileNotFoundError:
+            print(f"Error: The file {file_path} was not found.")
+            exit()
 
+        # 2. Inspect and Clean Data
+        # Ensure columns are named correctly for the formula (no spaces)
+        # Based on your previous logs, your columns are: 'Model', 'Optimization', 'Total_Inference_Time_ms'
+        print(df.head())
+
+        # 3. Perform Two-Way ANOVA
+        # Formula: Response ~ C(Factor1) + C(Factor2) + C(Factor1):C(Factor2)
+        # C() indicates that the variable is Categorical
+        formula = 'Total_Inference_Time_ms ~ C(Model) + C(Optimization) + C(Model):C(Optimization)'
+
+        model = ols(formula, data=df).fit()
+        anova_table = sm.stats.anova_lm(model, typ=2)
+
+        print("\n--- ANOVA Results (Type II) ---")
+        print(anova_table)
+
+        # 4. Visualization: Interaction Plot
+        # This helps see if the effect of Optimization depends on the Model
+        plt.figure(figsize=(10, 6))
+        interaction_plot(x=df['Optimization'], 
+                        trace=df['Model'], 
+                        response=df['Total_Inference_Time_ms'], 
+                        colors=['red', 'blue'], 
+                        markers=['D', '^'], 
+                        ms=10)
+
+        plt.title('Interaction Plot: Model vs Optimization')
+        plt.xlabel('Optimization Technique')
+        plt.ylabel('Inference Time (ms)')
+        plt.grid(True)
+        plt.show()
+
+        
 
 if __name__ == "__main__":
+
+    torch.multiprocessing.set_sharing_strategy('file_system')
 
     config = {
         "models": [
@@ -244,6 +369,7 @@ if __name__ == "__main__":
 
     doe.initializeDoE()
     doe.run()
+    doe.runAnova()
 
 
 

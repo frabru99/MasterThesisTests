@@ -4,6 +4,7 @@ config.dictConfig(TEST_LOGGING_CONFIG) #logger config
 logger = getLogger(__name__) #logger
 
 import difflib
+import gc
 from difflib import SequenceMatcher
 from pathlib import Path
 from subprocess import run, DEVNULL
@@ -85,7 +86,6 @@ def getFilenameList(directory_path: str):
         raise FileNotFoundError(f"No files were found in this directory: {directory_path}")
         exit(0)
 
-
 def cleanCaches():
     """
     This function writes the number 3 in /proc/sys/vm/drop_caches file in order to drop the unused pages, inodes and dentries.
@@ -94,7 +94,7 @@ def cleanCaches():
     """
     try:
 
-        result = run([clean_caches_script_bash], check=True, stdout=DEVNULL)
+        result = run([str(clean_caches_script_bash)z], check=True, stdout=DEVNULL)
 
         if result.returncode==0:
             logger.info("CACHE CLEANED...")
@@ -102,3 +102,28 @@ def cleanCaches():
         logger.error(f"Cache not cleaned correctly. The next measurements could be not independent.\nThe error is: {e}")
     except Exception as e:
         logger.error(f"Encountered a generic problem cleaning the caches. The next measurements could be not independent.\nThe error is: {e}")
+
+# Sub Function to call a sub-process
+def subRun(aimodel, inference_loader, config_id, output_file_path):
+    
+    try:
+        stats = aimodel.runInference(inference_loader, config_id)
+
+        print(f"Returned stats: {stats}\n")
+
+        del aimodel
+        del inference_loader
+
+        gc.collect()
+        
+        with open(output_file_path, 'w') as f:
+            json.dump(stats, f, indent=4)
+                
+        print(f"WORKER: Stats successfully written to {output_file_path}")
+
+    except Exception as e:
+        logger.error(f"SubProcess CRASHED")
+
+
+
+
