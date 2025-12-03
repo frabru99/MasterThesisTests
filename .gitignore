@@ -9,3 +9,4 @@ TestDatasets
 BenchProto/ModelData/Dataset/*
 *.csv
 __pycache__
+*.onnx
