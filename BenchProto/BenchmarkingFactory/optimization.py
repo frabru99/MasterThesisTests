@@ -4,6 +4,8 @@ config.dictConfig(TEST_LOGGING_CONFIG)
 logger = getLogger(__name__)
 
 import onnx
+import os
+import gc
 import torch
 import torch_pruning as tp
 import torch.nn as nn
@@ -202,11 +204,18 @@ class QuantizationOptimization(Optimization):
         """
         
         logger.debug(f"-----> [OPTIMIZATION MODULE] APPLY QUANTIZATION OPTIMIZATION")
+
+        os.environ["OMP_NUM_THREADS"] = "1"
+        os.environ["MKL_NUM_THREADS"] = "1" 
+        os.environ["ONNXRUNTIME_INTRA_OP_NUM_THREADS"] = "1"
+        os.environ["ONNXRUNTIME_INTER_OP_NUM_THREADS"] = "1"
     
         if not self.current_aimodel:
             raise MissingAIModelError(
                 "No AIModel set. Call setAIModel() before applying optimization"
             )
+
+        gc.collect()
 
         device = self.current_aimodel.getInfo('device')
         model_name = self.current_aimodel.getInfo('model_name')
@@ -242,6 +251,9 @@ class QuantizationOptimization(Optimization):
         model_quantized_path = str(PROJECT_ROOT / "ModelData" / "ONNXModels" / f"{config_id}" /f"{model_name}_quantized.onnx")
 
         onnx.shape_inference.infer_shapes_path(model_path, model_prep_path)
+
+        # Cleaning memory after inference shape
+        gc.collect()
 
         quantization.shape_inference.quant_pre_process(
             model_prep_path, 
@@ -281,6 +293,9 @@ class QuantizationOptimization(Optimization):
         )
 
         logger.info("Quantization Complete")
+
+        del qdr
+        gc.collect()
 
         if quantized_model is not None:
             return True
