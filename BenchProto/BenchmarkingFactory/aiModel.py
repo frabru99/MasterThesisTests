@@ -17,6 +17,7 @@ from torchvision import models
 from BenchmarkingFactory.dataWrapper import DataWrapper
 from Utils.utilsFunctions import getHumanReadableValue
 from Utils.calculateStats import CalculateStats
+from tqdm import tqdm
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
@@ -343,7 +344,8 @@ class AIModel():
 
         n_total_images = len(input_data.dataset)
         num_batches = len(input_data)
-        logger.info(f"In this dataset there are {n_total_images} images across {num_batches} batches")
+        logger.info(f"INFERENCING OVER {num_batches} BATCHES...\n")
+        logger.debug(f"In this dataset there are {n_total_images} images across {num_batches} batches")
         
         total = 0
         correct = 0
@@ -356,7 +358,7 @@ class AIModel():
 
     
         with torch.no_grad():
-            for inputs, labels in input_data:
+            for inputs, labels in tqdm(input_data):
 
                 labels = labels.to(device_str)
                 batch_size = inputs.shape[0]
@@ -453,7 +455,7 @@ class AIModel():
         stats = CalculateStats.calculateStats(profile_file_path, num_batches, n_total_images, correct, total, running_loss)
 
         
-        CalculateStats.printStats(stats, f" {model_name} STATS ")            
+        CalculateStats.printStats(stats, f" {model_name.upper()} STATS ")            
 
         logger.debug(f"<----- [AIMODEL MODULE] RUN INFERENCE\n")
 

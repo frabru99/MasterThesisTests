@@ -19,8 +19,7 @@ class CalculateStats:
             - topic: the topic to print at the first line
 
         """
-
-        print("\n" +"-"*10 + topic + "-"*10)
+        print("\n" +"-"*10 + '\x1b[32m' + topic + '\033[0m' + "-"*10)
         for key, value in input.items():
             if key=="Accuracy":
                 print("\n")

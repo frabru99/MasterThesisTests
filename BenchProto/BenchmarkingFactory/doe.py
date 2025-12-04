@@ -19,7 +19,8 @@ import matplotlib.pyplot as plt
 import statsmodels.api as sm
 from statsmodels.graphics.factorplots import interaction_plot
 from multiprocessing import Process, SimpleQueue, set_start_method, get_context #trying this one
-from Utils.utilsFunctions import subRun, subRunQueue, cleanCaches
+from Utils.utilsFunctions import subRun, cleanCaches, initialPrint  , subRunQueue
+from rich.pretty import pprint
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -29,7 +30,9 @@ from Utils.utilsFunctions import cleanCaches
 from ProbeHardwareModule.probeHardwareManager import ProbeHardwareManager
 from PackageDownloadModule.packageDownloadManager import PackageDownloadManager
 
+
 torch.multiprocessing.set_sharing_strategy('file_system')
+
 
 class DoE():
     _instance = None #for Singleton
@@ -62,8 +65,9 @@ class DoE():
         if not hasattr(self, "created"):
             self.created=True #After that the first object is initialized, we'll not initialize another one. 
             self.__initialized=False
+            self.__ran=False
             self.__config_id = config_id
-            self.__repetitions = 2 # Must be added to the general config
+            self.__repetitions = config["repetitions"] # Must be added to the general config
             self.__model_info=config["models"]
             self.__optimizations_info=config["optimizations"]
             self.__dataset_info = config["dataset"]
@@ -160,7 +164,7 @@ class DoE():
 
         """
 
-
+        initialPrint("DESIGN OF EXPERIMENTS\n")
         models_list = []
         optimization_list = []
 
@@ -173,13 +177,20 @@ class DoE():
 
         design = list(product(models_list, optimization_list))
 
+        self.__printDesign(design)
         full_design = []
         for _ in range(self.__repetitions):
             full_design.extend(design)
 
-        print(f"CREATED DESIGN: {full_design}")
-
         return full_design
+
+    def __printDesign(self, design:list):
+        print('\x1b[32m' +f"{'MODEL NAME':<20}\t{'OPTIMIZATION':<20}\tREPETITIONS" + '\x1b[37m')
+        for model, optimization in design:
+            print(f"{model:<20}\t{optimization:<20}\t{self.__repetitions}")
+
+        print("\n")
+
 
 
     def initializeDoE(self):
@@ -194,6 +205,7 @@ class DoE():
                 - None
         """
 
+        initialPrint("OPTIMIZATIONS APPLY")
         optimized_models = []
         
 
@@ -316,6 +328,8 @@ class DoE():
 
         assert self.__initialized, "The DoE should be initialized in order to run."
 
+        initialPrint("INFERENCES")
+
         try:
             set_start_method('spawn', force=True)
         except RuntimeError:
@@ -327,7 +341,7 @@ class DoE():
         results_list = []
         for i, (mod_name, opt_name) in enumerate(self.__design):
 
-            logger.info(f"--- RUN {i+1} / {len(self.__design)}: {mod_name} | {opt_name} ---")
+            print("\n\t"+ "\x1b[36m" + f" RUN {i+1} / {len(self.__design)}, : {mod_name} | {opt_name}" + "\x1b[37m" + "\n")
 
             # Cleaning caches to make independent data
             cleanCaches()
@@ -352,7 +366,9 @@ class DoE():
                 })
             else:
                 logger.error(f"During single inference something went wrong!")
+                
 
+        self.__ran=True
 
         df = DataFrame(results_list)
         df.to_csv("doe_results_raw.csv", index = False)
@@ -362,18 +378,23 @@ class DoE():
         Run and print the results of a two way anova
         it gets the data from a csv
         """
+        #assert self.__ran, "The DoE should be executed with .run before running ANOVA."
+
+        initialPrint("ANOVA ANALYSIS\n")
 
         file_path = str(PROJECT_ROOT / "doe_results_raw.csv")
         try:
             df = pd.read_csv(file_path)
             logger.info("Data loaded successfully.")
         except FileNotFoundError:
-            logger.error(f"Error: The file {file_path} was not found.")
-            exit()
+            logger.critical(f"Error: The file {file_path} was not found.")
+            exit(0)
 
         # Columns should be: 'Model', 'Optimization', 'Total_Inference_Time_ms'
         logger.debug(f"Headers of created data [ANOVA TABLE]:")
         logger.debug(df.head())
+
+        pprint(df.head())
 
         # Perform Two-Way ANOVA
         formula = 'Total_Inference_Time_ms ~ C(Model) + C(Optimization) + C(Model):C(Optimization)'
@@ -381,8 +402,6 @@ class DoE():
         model = ols(formula, data=df).fit()
         anova_table = sm.stats.anova_lm(model, typ=2)
 
-        logger.info("--- ANOVA Results (Type II) ---")
-        logger.info(f"\n{anova_table}")
 
         num_models = len(self.__models.keys())
 
@@ -393,6 +412,10 @@ class DoE():
         markers = markers[:num_models]
 
         # Visualization: Interaction Plot
+        initialPrint("RESULTS\n")
+        pprint(anova_table)
+
+
         plt.figure(figsize=(10, 6))
         interaction_plot(x=df['Optimization'], 
                         trace=df['Model'], 
@@ -413,7 +436,6 @@ class DoE():
 
 if __name__ == "__main__":
 
-    torch.multiprocessing.set_sharing_strategy('file_system')
 
     config = {
         "models": [
@@ -465,7 +487,8 @@ if __name__ == "__main__":
         "dataset": {
             "data_dir": "ModelData/Dataset/casting_data",
             "batch_size": 32
-        }
+        },
+        "repetitions": 2
     }
 
     probe = ProbeHardwareManager()
@@ -491,7 +514,7 @@ if __name__ == "__main__":
     doe = DoE(config, config_id)
 
     doe.initializeDoE()
-    #doe.runDesign()
+    doe.runDesign()
     doe.runAnova()
 
     #doe.getString()

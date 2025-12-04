@@ -10,6 +10,7 @@ from json import dump
 from difflib import SequenceMatcher
 from pathlib import Path
 from subprocess import run, DEVNULL
+from json import dump
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
@@ -131,7 +132,7 @@ def subRun(aimodel, inference_loader, config_id, output_file_path):
         logger.debug(f"WORKER: Stats successfully written to {output_file_path}")
 
     except Exception as e:
-        logger.error(f"SubProcess CRASHED")
+        logger.error(f"SubProcess CRASHED: {e}")
 
 def subRunQueue(aimodel, inference_loader, config_id, queue):
     """
@@ -148,5 +149,8 @@ def subRunQueue(aimodel, inference_loader, config_id, queue):
         queue.put({"status": "error", "message": str(e)})
 
 
+
+def initialPrint(topic: str) -> None:
+    print("\n\t\t"+ '\x1b[35m' + topic + '\033[0m')
 
 

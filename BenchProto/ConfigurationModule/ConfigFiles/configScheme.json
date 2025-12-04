@@ -55,7 +55,6 @@
                     "type": "string"
                 }
             },
-
             "anyOf": [
                 {
                     "properties":{"native": {"const": true}}
@@ -144,9 +143,15 @@
         },
         "maxItems": 1
 
+    },
+
+    "repetitions":{
+        "description": "Repetition for each couple (Model, Optimization) in the DoE.",
+        "type": "integer",
+        "exclusiveMinimum": 1
     }   
 },
 
-"required": ["models", "optimizations", "dataset"],
+"required": ["models", "optimizations", "dataset", "repetitions"],
 "additionalProperties": false
 }
