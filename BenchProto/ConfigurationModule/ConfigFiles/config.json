@@ -60,7 +60,7 @@
     },
     "dataset": {
         "data_dir": "ModelData/Dataset/casting_data",
-        "batch_size": 15
+        "batch_size": 32
     },
     "repetitions": 2
 }

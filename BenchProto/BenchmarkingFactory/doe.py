@@ -19,8 +19,9 @@ import matplotlib.pyplot as plt
 import statsmodels.api as sm
 from statsmodels.graphics.factorplots import interaction_plot
 from multiprocessing import Process, SimpleQueue, set_start_method, get_context #trying this one
-from Utils.utilsFunctions import subRun, subRunQueue, cleanCaches, initialPrint
+from Utils.utilsFunctions import subRun, cleanCaches, initialPrint, subRunQueue
 from rich.pretty import pprint
+
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 from Utils.utilsFunctions import cleanCaches
@@ -29,7 +30,9 @@ from Utils.utilsFunctions import cleanCaches
 from ProbeHardwareModule.probeHardwareManager import ProbeHardwareManager
 from PackageDownloadModule.packageDownloadManager import PackageDownloadManager
 
+
 torch.multiprocessing.set_sharing_strategy('file_system')
+
 
 class DoE():
     _instance = None #for Singleton
@@ -363,7 +366,9 @@ class DoE():
                 })
             else:
                 logger.error(f"During single inference something went wrong!")
+                
 
+        self.__ran=True
 
         df = DataFrame(results_list)
         df.to_csv("doe_results_raw.csv", index = False)
@@ -483,7 +488,7 @@ if __name__ == "__main__":
         },
         "dataset": {
             "data_dir": "ModelData/Dataset/casting_data",
-            "batch_size": 15
+            "batch_size": 32
         },
         "repetitions": 2
     }
@@ -511,7 +516,7 @@ if __name__ == "__main__":
     doe = DoE(config, config_id)
 
     doe.initializeDoE()
-    #doe.runDesign()
+    doe.runDesign()
     doe.runAnova()
 
     #doe.getString()

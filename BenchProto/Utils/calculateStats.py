@@ -10,6 +10,31 @@ from Utils.utilsFunctions import getHumanReadableValue
 
 class CalculateStats:
 
+    def printStats(input: dict, topic: str) -> None:
+        """
+        Handler function to print Stas of the model on terminal.
+
+        Input:
+            - input: dict that contains couples key, value to print.
+            - topic: the topic to print at the first line
+
+        """
+        print("\n" +"-"*10 + '\x1b[32m' + topic + '\033[0m' + "-"*10)
+        for key, value in input.items():
+            if key=="Accuracy":
+                print("\n")
+                
+            if isinstance(value, float):
+                print(f"{key}: {value:.2f}")
+                continue
+            
+            print(f"{key}: {value}")
+                
+
+        print("-"*10 + "-"*len(topic)+"-"*10+"\n")
+
+
+
     def _calculateKernelStats(profile_file_path: str, num_batches: int, total_images: int, correct: int, total: int, running_loss: int) -> dict:
         """
         Parses an ONNX Runtime profile JSON file to get pure kernel statistics.
