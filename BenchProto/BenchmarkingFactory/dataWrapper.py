@@ -3,11 +3,11 @@ from logging_config import TEST_LOGGING_CONFIG
 config.dictConfig(TEST_LOGGING_CONFIG)
 logger = getLogger(__name__)
 
-from importlib import import_module
 import torch 
+from pathlib import Path
+from importlib import import_module
 from torch.utils.data import DataLoader
 from torchvision import datasets, models, transforms
-from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
@@ -42,7 +42,6 @@ class DataWrapper():
         image_size = model_info['image_size']
 
         return transforms.Compose([
-            #transforms.Resize(image_size + 32),
             weights.transforms()
         ])
 

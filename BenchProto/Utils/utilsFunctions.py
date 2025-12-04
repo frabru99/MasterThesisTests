@@ -3,8 +3,10 @@ from logging_config import TEST_LOGGING_CONFIG
 config.dictConfig(TEST_LOGGING_CONFIG) #logger config
 logger = getLogger(__name__) #logger
 
-import difflib
 import gc
+import difflib
+import traceback # TRYING
+from json import dump
 from difflib import SequenceMatcher
 from pathlib import Path
 from subprocess import run, DEVNULL
@@ -94,35 +96,56 @@ def cleanCaches():
     """
     try:
 
-        result = run([str(clean_caches_script_bash)z], check=True, stdout=DEVNULL)
+        result = run([str(clean_caches_script_bash)], check=True, stdout=DEVNULL)
 
         if result.returncode==0:
-            logger.info("CACHE CLEANED...")
+            logger.info("CACHE CLEANED FOR INDEPENDENT EXPERIMENTS")
     except ChildProcessError as e:
         logger.error(f"Cache not cleaned correctly. The next measurements could be not independent.\nThe error is: {e}")
     except Exception as e:
         logger.error(f"Encountered a generic problem cleaning the caches. The next measurements could be not independent.\nThe error is: {e}")
 
-# Sub Function to call a sub-process
+
 def subRun(aimodel, inference_loader, config_id, output_file_path):
+    """
+    Entry point for sub_process to do an independent inference test
+    on a single test loader
+
+    Input:
+        - aimodel: instance of one aiModel
+        - inference_loader: torch_dataloader to do the inference
+        - config_id: configuration id for this particular experiment
+        - output_file_path: where to write the results
+    """
     
     try:
         stats = aimodel.runInference(inference_loader, config_id)
 
-        print(f"Returned stats: {stats}\n")
-
         del aimodel
         del inference_loader
-
         gc.collect()
         
         with open(output_file_path, 'w') as f:
-            json.dump(stats, f, indent=4)
+            dump(stats, f, indent=4)
                 
-        print(f"WORKER: Stats successfully written to {output_file_path}")
+        logger.debug(f"WORKER: Stats successfully written to {output_file_path}")
 
     except Exception as e:
         logger.error(f"SubProcess CRASHED")
+
+def subRunQueue(aimodel, inference_loader, config_id, queue):
+    """
+    Worker function to run in the subprocess.
+    """
+    try:  
+        stats = aimodel.runInference(inference_loader, config_id)
+
+        queue.put({"status": "success", "data": stats})
+
+    except Exception as e:
+        logger.error(f"SubProcess CRASHED: {e}")
+        logger.error(traceback.format_exc())
+        queue.put({"status": "error", "message": str(e)})
 
 
 
