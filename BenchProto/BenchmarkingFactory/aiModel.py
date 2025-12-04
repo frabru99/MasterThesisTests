@@ -498,6 +498,21 @@ if __name__ == "__main__":
 
     }
 
+    mnas_path = str(model_weights_path / "mnasnet1_0.pth")
+    mnas_info = {
+        'module': 'torchvision.models',
+        'model_name': "mnasnet1_0",
+        'native': True,
+        'weights_path': mnas_path,
+        'device': "cpu",
+        'class_name': 'mnasnet1_0',
+        'weights_class': 'MNASNet1_0_Weights.DEFAULT',
+        'image_size': 224,
+        'num_classes': 2,
+        'description': 'mnasnet1_0 from torchvision'
+
+    }
+
     data_dir = "ModelData/Dataset/casting_data"
 
     dataset_info = {
@@ -507,6 +522,7 @@ if __name__ == "__main__":
 
     efficientnet = AIModel(efficient_info)
     mobilenet = AIModel(mobile_info)
+    mnasnet = AIModel(mnas_info)
     dataset = DataWrapper()
     
     efficient_name = efficientnet.getInfo("model_name")
@@ -523,5 +539,11 @@ if __name__ == "__main__":
     inference_loader = dataset.getLoader()
     mobilenet.createOnnxModel(inference_loader, config_id)
     mobile_stats = mobilenet.runInference(inference_loader, config_id)
+
+    # Third Inference test: with mnasnet
+    dataset.loadInferenceData(model_info = mnas_info, dataset_info = dataset_info)
+    inference_loader = dataset.getLoader()
+    mnasnet.createOnnxModel(inference_loader, config_id)
+    mnas_stats = mnasnet.runInference(inference_loader, config_id)
 
     logger.debug("------------- AI MODULE TEST END -------------------")

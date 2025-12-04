@@ -11,6 +11,7 @@ import gc
 import traceback
 from pathlib import Path
 import pandas as pd
+import numpy as np
 from pandas import DataFrame
 from statsmodels.formula.api import ols
 from itertools import product
@@ -161,10 +162,12 @@ class DoE():
 
 
         models_list = []
+        optimization_list = []
+
         for model_name in self.__models.keys():
             models_list.append(model_name)
-
-        optimization_list = []
+            
+        optimization_list.append("Base")
         for opt_obj, opt_name in self.__optimizations:
             optimization_list.append(opt_name)
 
@@ -381,13 +384,21 @@ class DoE():
         logger.info("--- ANOVA Results (Type II) ---")
         logger.info(f"\n{anova_table}")
 
+        num_models = len(self.__models.keys())
+
+        # If you have more than 10 models use tab20
+        colors = plt.cm.tab10(np.linspace(0, 1, num_models))
+
+        markers = ['o', 's', 'D', '^', 'v', '<', '>', 'p', '*', 'h', 'X', 'd']
+        markers = markers[:num_models]
+
         # Visualization: Interaction Plot
         plt.figure(figsize=(10, 6))
         interaction_plot(x=df['Optimization'], 
                         trace=df['Model'], 
                         response=df['Total_Inference_Time_ms'], 
-                        colors=['red', 'blue'], 
-                        markers=['D', '^'], 
+                        colors=colors, 
+                        markers=markers, 
                         ms=10)
 
         plt.title('Interaction Plot: Model vs Optimization')
@@ -422,6 +433,19 @@ if __name__ == "__main__":
             {
                 "model_name": "efficientnet",
                 "native": True
+            },
+            {
+                'module': 'torchvision.models',
+                'model_name': "mnasnet1_0",
+                'native': False,
+                'weights_path': "ModelData/Weights/mnasnet1_0.pth",
+                'device': "cpu",
+                'class_name': 'mnasnet1_0',
+                'weights_class': 'MNASNet1_0_Weights.DEFAULT',
+                'image_size': 224,
+                'num_classes': 2,
+                "task": "classification",
+                'description': 'mnasnet_v2 from torchvision'
             }
         ],
         "optimizations": {
@@ -467,7 +491,7 @@ if __name__ == "__main__":
     doe = DoE(config, config_id)
 
     doe.initializeDoE()
-    doe.runDesign()
+    #doe.runDesign()
     doe.runAnova()
 
     #doe.getString()

@@ -93,7 +93,7 @@ class PruningOptimization(Optimization):
             example_inputs,
             importance=imp,
             iterative_steps=1,    
-            ch_sparsity=amount, 
+            pruning_ratio=amount, 
             round_to=8,  
             ignored_layers=ignored_layers,
         )
@@ -394,7 +394,7 @@ if __name__ == "__main__":
     # Faking user input
     efficient_info = {
         'module': 'torchvision.models',
-        'model_name': "efficientnet_v2",
+        'model_name': "efficientnet_b0",
         'native': True,
         'weights_path': efficient_path,
         'device': "cpu",
@@ -420,6 +420,21 @@ if __name__ == "__main__":
 
     }
 
+    mnas_path = str(model_weights_path / "mnasnet1_0.pth")
+    mnas_info = {
+        'module': 'torchvision.models',
+        'model_name': "mnasnet1_0",
+        'native': True,
+        'weights_path': mnas_path,
+        'device': "cpu",
+        'class_name': 'mnasnet1_0',
+        'weights_class': 'MNASNet1_0_Weights.DEFAULT',
+        'image_size': 224,
+        'num_classes': 2,
+        'description': 'mnasnet_v2 from torchvision'
+
+    }
+
     # Creating base model
     efficientnet = AIModel(efficient_info)
     logger.debug(f"Inference with {efficientnet.getInfo('model_name')}, description: {efficientnet.getInfo('description')}")
@@ -438,34 +453,52 @@ if __name__ == "__main__":
     mobilenet = AIModel(mobile_info)
     mobilenet_dataset = DataWrapper()
     mobilenet_dataset.loadInferenceData(model_info = mobile_info, dataset_info = dataset_info)
-    mobilenet_loader = dataset.getLoader()
+    mobilenet_loader = mobilenet_dataset.getLoader()
     mobilenet.createOnnxModel(mobilenet_loader, config_id)
     mobilenet.runInference(mobilenet_loader, config_id)
 
+    # Base model for mnasnet
+    mnasnet = AIModel(mnas_info)
+    mnasnet_dataset = DataWrapper()
+    mnasnet_dataset.loadInferenceData(model_info = mnas_info, dataset_info = dataset_info)
+    mnasnet_loader = mnasnet_dataset.getLoader()
+    mnasnet.createOnnxModel(mnasnet_loader, config_id)
+    mnasnet.runInference(mnasnet_loader, config_id)
+
+
     # # -----------------------------------------------
 
-    # # -------- TEST WITH PRUNED MODEL -------------------
-    # #Pruning Info example
-    # pruning_info = {
-    #     "method": "LnStructured",
-    #     "n": 1,
-    #     "amount": 0.2
-    # }
+    # -------- TEST WITH PRUNED MODEL -------------------
+    #Pruning Info example
+    pruning_info = {
+        "method": "LnStructured",
+        "n": 1,
+        "amount": 0.2
+    }
 
-    # # Creating Pruning Optimization Object
-    # pruning_optimizator = PruningOptimization(pruning_info)
+    # Creating Pruning Optimization Object
+    pruning_optimizator = PruningOptimization(pruning_info)
     
-    # # Creating new Pruned AIModel
-    # pruning_optimizator.setAIModel(efficientnet)
-    # pruned_efficientnet = pruning_optimizator.applyOptimization(inference_loader)
+    # Creating new Pruned AIModels
+    pruning_optimizator.setAIModel(efficientnet)
+    pruned_efficientnet = pruning_optimizator.applyOptimization(inference_loader)
 
-    # # Attaching dataset to pruned model
-    # dataset.loadInferenceData(model_info = pruned_efficientnet.getAllInfo(), dataset_info = dataset_info)
-    # inference_loader = dataset.getLoader()
+    pruning_optimizator.setAIModel(mobilenet)
+    pruned_mobilenet = pruning_optimizator.applyOptimization(mobilenet_loader)
 
-    # # Inference with prunde model
-    # pruned_efficientnet.createOnnxModel(inference_loader)
-    # pruned_efficientnet.runInference(inference_loader)
+    pruning_optimizator.setAIModel(mnasnet)
+    pruned_mnasnet = pruning_optimizator.applyOptimization(mnasnet_loader)
+
+
+    # Inference with prunde model
+    pruned_efficientnet.createOnnxModel(inference_loader, config_id)
+    pruned_efficientnet.runInference(inference_loader, config_id)
+
+    pruned_mobilenet.createOnnxModel(mobilenet_loader, config_id)
+    pruned_mobilenet.runInference(mobilenet_loader, config_id)
+
+    pruned_mnasnet.createOnnxModel(mnasnet_loader, config_id)
+    pruned_mnasnet.runInference(mnasnet_loader, config_id)
 
     # # -----------------------------------------------
 
@@ -504,7 +537,7 @@ if __name__ == "__main__":
         'method': True,
         'distilled_paths': {
             'mobilenet_v2': '/home/salvatore/Desktop/MasterThesis/MasterThesisTests/BenchProto/ModelData/Weights/mobilenet_v2_distilled.pth',
-            'efficientnet': '/home/salvatore/Desktop/MasterThesis/MasterThesisTests/BenchProto/ModelData/Weights/efficientnet_b0_distilled.pth'
+            'efficientnet_b0': '/home/salvatore/Desktop/MasterThesis/MasterThesisTests/BenchProto/ModelData/Weights/efficientnet_b0_distilled.pth'
         }
     }
 
