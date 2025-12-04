@@ -1,3 +1,31 @@
+import logging
+import logging.config
+
+class ColoredFormatter(logging.Formatter):
+    RESET = "\x1b[0m"
+    RED = "\x1b[31m"
+    YELLOW = "\x1b[33m"
+    GREEN = "\x1b[32m"
+    BLUE = "\x1b[34m"
+    MAGENTA = "\x1b[35m"
+
+    LEVEL_COLORS = {
+        logging.DEBUG: MAGENTA,
+        logging.INFO: BLUE,
+        logging.WARNING: YELLOW,
+        logging.ERROR: RED,
+        logging.CRITICAL: RED,
+    }
+
+    def format(self, record):
+        original_levelname = record.levelname
+        color = self.LEVEL_COLORS.get(record.levelno, self.RESET)
+        record.levelname = f"{color}{original_levelname}{self.RESET}"   
+        formatted_message = super().format(record)
+        record.levelname = original_levelname
+
+        return formatted_message
+
 TEST_LOGGING_CONFIG = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -8,6 +36,7 @@ TEST_LOGGING_CONFIG = {
             'format': '%(asctime)s [%(levelname)s] %(name)s: %(message)s'
         },
         'simple': {
+            '()': ColoredFormatter,
             'format': '[%(levelname)s] %(message)s'
         },
     },
@@ -37,7 +66,7 @@ TEST_LOGGING_CONFIG = {
             'propagate': False 
         },
 
-        '__main__': {  
+        'main': {  
         'level': 'INFO',
         'handlers': ['console', 'test_file'],
         'propagate': False
@@ -109,7 +138,7 @@ TEST_LOGGING_CONFIG = {
     
     # --- THE DEFAULT (ROOT) LOGGER ---
     'root': {
-        'level': 'ERROR', # Default for all other libraries
+        'level': 'INFO', # Default for all other libraries
         'handlers': ['console', 'test_file']
     }
 }

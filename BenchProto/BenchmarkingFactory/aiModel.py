@@ -4,21 +4,17 @@ from logging_config import TEST_LOGGING_CONFIG
 config.dictConfig(TEST_LOGGING_CONFIG)
 logger = getLogger(__name__)
 
-import numpy as np
-import onnxruntime as ort
-import onnx
+
 import torch
 import torch.nn as nn
-import json
+import onnxruntime as ort
+from numpy import float32
 from os import remove, mkdir, getpid
 from importlib import import_module
+from psutil import Process
 from pathlib import Path
 from torchvision import models
 from BenchmarkingFactory.dataWrapper import DataWrapper
-
-
-
-from psutil import Process
 from Utils.utilsFunctions import getHumanReadableValue
 from Utils.calculateStats import CalculateStats
 
@@ -39,7 +35,6 @@ class AIModel():
             'module': 'torchvision.models',
             'model_name',
             'native': True,
-            'distilled': False,
             'weights_path': "",
             'device': "cpu",
             'class_name': 'resnet50',
@@ -335,8 +330,8 @@ class AIModel():
             input_name = ort_session.get_inputs()[0].name
             output_name = ort_session.get_outputs()[0].name
             
-            input_type = np.float32
-            output_type = np.float32
+            input_type = float32
+            output_type = float32
 
             logger.debug(f"Input of ort session: {ort_session.get_inputs()[0]}")
             logger.debug(f"Output of ort session: {ort_session.get_outputs()[0]}")
@@ -472,12 +467,13 @@ if __name__ == "__main__":
 
     model_weights_path = PROJECT_ROOT / "ModelData" / "Weights"
     efficient_path = str(model_weights_path / "casting_efficientnet_b0.pth")
+
+    config_id = "TEST_CONFIG_ID"
     
     efficient_info = {
         'module': 'torchvision.models',
         'model_name': "efficientnet_v2",
         'native': True,
-        'distilled': False,
         'weights_path': efficient_path,
         'device': "cpu",
         'class_name': 'efficientnet_b0',
@@ -492,7 +488,6 @@ if __name__ == "__main__":
         'module': 'torchvision.models',
         'model_name': "mobilenet_v2",
         'native': True,
-        'distilled': False,
         'weights_path': mobile_path,
         'device': "cpu",
         'class_name': 'mobilenet_v2',
@@ -500,6 +495,21 @@ if __name__ == "__main__":
         'image_size': 224,
         'num_classes': 2,
         'description': 'mobilenet_v2 from torchvision'
+
+    }
+
+    mnas_path = str(model_weights_path / "mnasnet1_0.pth")
+    mnas_info = {
+        'module': 'torchvision.models',
+        'model_name': "mnasnet1_0",
+        'native': True,
+        'weights_path': mnas_path,
+        'device': "cpu",
+        'class_name': 'mnasnet1_0',
+        'weights_class': 'MNASNet1_0_Weights.DEFAULT',
+        'image_size': 224,
+        'num_classes': 2,
+        'description': 'mnasnet1_0 from torchvision'
 
     }
 
@@ -512,6 +522,7 @@ if __name__ == "__main__":
 
     efficientnet = AIModel(efficient_info)
     mobilenet = AIModel(mobile_info)
+    mnasnet = AIModel(mnas_info)
     dataset = DataWrapper()
     
     efficient_name = efficientnet.getInfo("model_name")
@@ -520,13 +531,19 @@ if __name__ == "__main__":
     # First Inference test: with efficientnet
     dataset.loadInferenceData(model_info = efficient_info, dataset_info = dataset_info)
     inference_loader = dataset.getLoader()
-    efficientnet.createOnnxModel(inference_loader)
-    efficient_stats = efficientnet.runInference(inference_loader)
+    efficientnet.createOnnxModel(inference_loader, config_id)
+    efficient_stats = efficientnet.runInference(inference_loader, config_id)
 
     # Second Inference test: with mobilenet
     dataset.loadInferenceData(model_info = mobile_info, dataset_info = dataset_info)
     inference_loader = dataset.getLoader()
-    mobilenet.createOnnxModel(inference_loader)
-    mobile_stats = mobilenet.runInference(inference_loader)
+    mobilenet.createOnnxModel(inference_loader, config_id)
+    mobile_stats = mobilenet.runInference(inference_loader, config_id)
+
+    # Third Inference test: with mnasnet
+    dataset.loadInferenceData(model_info = mnas_info, dataset_info = dataset_info)
+    inference_loader = dataset.getLoader()
+    mnasnet.createOnnxModel(inference_loader, config_id)
+    mnas_stats = mnasnet.runInference(inference_loader, config_id)
 
     logger.debug("------------- AI MODULE TEST END -------------------")
