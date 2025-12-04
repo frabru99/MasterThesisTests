@@ -315,7 +315,48 @@ class ConfigManager:
 
     def __createDistilledPaths(self, optimizations: dict, model_dicts: list) -> None:
         """
-        Creates the paths for loading the distilled version of chosen models.
+        Creates the configuration file from a constructed dict created by the interactive CLI session.
+
+        Input: 
+            - config: the config dict generated from interactive session
+
+        Output:
+            - hash_value: returns the hash_value of the config for id purposes
+        
+        """
+
+        # It's an useless check, but we'll never know!
+        initialPrint("CONFIGURATION FILE CHECKING\n")
+
+        try:
+            logger.info("VALIDATING CREATED CONFIGURATON...")
+            validate(instance=config, schema=self.__schema)
+        except (ValidationError, Exception) as e:
+            logger.critical(f"Encountered a problem validating the config file. Check if the fields provided are correct.\nThe specific error is: {e}.\n")
+            exit(0)
+
+        logger.info("CONFIGURATION FILE CORRECTLY VALIDATED! \n")
+
+        if self.__checkModels(config["models"]) and self.__checkDataset(config["dataset"]) and self.__checkOptimizations(config["optimizations"], config['models']):
+            logger.info("DONE!")
+            self.__printConfigFile(config, " FINAL CONFIGURATION FILE ")
+            logger.info(f"SAVING IT INTO {config_path}...")
+
+            with open(config_path, "w") as config_file:
+                dump(config, config_file, indent=4)
+
+            logger.info(f"SAVED!")
+
+            hash_value = sha224(str(config).encode("utf-8")).hexdigest()
+            self.__updateConfigHistory(config, hash_value)
+            self.__addArchType(config)
+            return hash_value
+        else:
+            logger.info(f"EXITING...\n")
+
+    def __createDistilledPaths(self, optimizations: dict, model_dicts):
+        """
+        Create the distilled paths for loading the distilled version of chosen models
 
         Input:
             - optimizations: dict of optimizations

@@ -10,3 +10,5 @@ BenchProto/ModelData/Dataset/*
 *.csv
 __pycache__
 *.onnx
+BenchProto/ModelData/ONNXModels
+BenchProto/Plots/*.png

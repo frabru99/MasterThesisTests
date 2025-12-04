@@ -24,6 +24,19 @@
         "num_classes": 2,
         "task": "classification",
         "description": "EfficientNet from torchvision"
+    },
+    "mnasnet1_0": {
+        "module": "torchvision.models",
+        "model_name": "mnasnet1_0",
+        "native": true,
+        "weights_path": "ModelData/Weights/mnasnet1_0.pth",
+        "device": "cpu",
+        "class_name": "mnasnet1_0",
+        "weights_class": "MNASNet1_0_Weights.DEFAULT",
+        "image_size": 224,
+        "num_classes": 2,
+        "task": "classification",
+        "description": "mnasnet_v2 from torchvision"
     }
 
 }

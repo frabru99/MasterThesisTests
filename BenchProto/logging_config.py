@@ -66,7 +66,7 @@ TEST_LOGGING_CONFIG = {
             'propagate': False 
         },
 
-        '__main__': {  
+        'main': {  
         'level': 'INFO',
         'handlers': ['console', 'test_file'],
         'propagate': False
