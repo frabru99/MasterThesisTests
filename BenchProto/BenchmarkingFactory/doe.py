@@ -391,7 +391,7 @@ if __name__ == "__main__":
         },
         "dataset": {
             "data_dir": "ModelData/Dataset/casting_data",
-            "batch_size": 32
+            "batch_size": 15
         },
         "repetitions": 2
     }

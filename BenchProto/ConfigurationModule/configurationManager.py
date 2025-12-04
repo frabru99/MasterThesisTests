@@ -45,6 +45,11 @@ class ConfigManager:
         """
         Creates the ConfigManger object, loading the JSON Schema which the configuration have
         to be complaiant with.
+
+        Input:
+            - arch: architecture type given from ProbeHardwareModule
+            - there_is_gpu: bool
+            - schema_path: path to the JSON config schema
         
         """
         try:
@@ -64,6 +69,8 @@ class ConfigManager:
         Input: 
             - input: the element to print on the screen
             - topic: the specific topic of that element
+        Output:
+            -None
         """
         print("\n" +"-"*10 + '\x1b[32m' + topic + '\033[0m' + "-"*10)
         pprint(input, expand_all=True)
@@ -148,12 +155,13 @@ class ConfigManager:
 
 
 
-    def __checkOptimizations(self, optimizations: dict, model_dicts) -> bool:
+    def __checkOptimizations(self, optimizations: dict, model_dicts: list) -> bool:
         """
         Checks the availability of optimization methods wrote in config file. 
 
         Input: 
-            - optimizations: the list of chosen optimizations from the configuration file.
+            - optimizations: the dict of chosen optimizations from the configuration file.
+            - model_dicts: list of chosen models
         Output:
             - result: bool
         """
@@ -220,7 +228,7 @@ class ConfigManager:
         Checks if the dataset path specified contains at least one file. The validity of the dataset will be checked later. 
 
         Input: 
-            - dataset: the dict of dataset section in config file
+            - dataset_dict: the dict of dataset section in config file
         Output:
             - result: bool
         """
@@ -247,6 +255,9 @@ class ConfigManager:
 
         Input:
             - config: the created/loaded configuration
+            - hash_value: the hash value created from the configuration (config_id)
+        Output:
+            - None
         
         """
     
@@ -261,7 +272,6 @@ class ConfigManager:
 
             except decoder.JSONDecodeError as e:
                 logger.info(f"THE HISTORY FILE WAS EMPTY!")
-
 
 
         while True:
@@ -287,11 +297,65 @@ class ConfigManager:
         print("\n")
 
 
-    def __addArchType(self, config: dict):
+    def __addArchType(self, config: dict) -> None:
+
+        """
+        Adds the architecture type ('x86' or 'aarch') to the config file. 
+
+        Input:
+            - config: the config dict
+        Output:
+            - None
+        """
 
         for optimization in OPTIMIZATIONS_NEED_ARCH:
                 if optimization in config["optimizations"]:
                     config["optimizations"][optimization]["arch"] = self.__arch
+
+
+    def __createDistilledPaths(self, optimizations: dict, model_dicts: list) -> None:
+        """
+        Creates the paths for loading the distilled version of chosen models.
+
+        Input:
+            - optimizations: dict of optimizations
+            - model_dicts: list of all models choosen
+        Output:
+            - None
+        """
+
+        file_name_list = getFilenameList(models_weights_path)
+        file_name_list = [file_name for file_name in file_name_list if "_distilled" in file_name]
+
+        for model_dict in model_dicts:
+
+            best_candidate_for_model, best_file_name = "", ""
+            for file_name in file_name_list:
+
+                file_name_without_pth = file_name.removesuffix("_distilled.pth")
+
+                best_candidate_for_name = getLongestSubString(model_dict['model_name'], file_name_without_pth)
+                best_candidate_for_path = getLongestSubString(model_dict['weights_path'].split("/")[-1].removesuffix(".pth"), file_name_without_pth)
+
+                best_candidate_between_name_path = max(best_candidate_for_name, best_candidate_for_path, key=len)
+
+                if len(best_candidate_between_name_path) > len(best_candidate_for_model):
+                    best_candidate_for_model = best_candidate_between_name_path
+                    best_file_name = file_name
+
+                # Perfect Match, found the distilled weights
+                if len(file_name_without_pth) == len(best_candidate_for_model):
+                    break
+
+            if len(best_file_name.removesuffix("_distilled.pth")) == len(best_candidate_for_model):
+                logger.info(f"MODEL: {model_dict['model_name']} | YOU FOUND THE CORRECT DISTILLED MODEL {best_file_name}")
+            elif len(best_file_name) == 0:
+                logger.critical(f"MODEL: {model_dict['model_name']} | NO MATCH WITH NONE FILE FOR DISTILLED MODEL")
+                exit(0)
+            else:
+                logger.warning(f"MODEL: {model_dict['model_name']} | YOU FOUND A PARTIAL MATHC FOR A DISTILLED MODEL: {best_file_name}")
+
+            optimizations['Distillation']['distilled_paths'][model_dict['model_name']] =  f"{models_weights_path}/{best_file_name}"           
 
 
     def loadConfigFile(self, path=config_path) -> (dict, str):
@@ -348,10 +412,10 @@ class ConfigManager:
         
         """
 
-        # It's an useless check, but we'll never know!
         initialPrint("CONFIGURATION FILE CHECKING\n")
 
         try:
+            # It's an useless check, but we'll never know!
             logger.info("VALIDATING CREATED CONFIGURATON...")
             validate(instance=config, schema=self.__schema)
         except (ValidationError, Exception) as e:
@@ -377,47 +441,7 @@ class ConfigManager:
         else:
             logger.info(f"EXITING...\n")
 
-    def __createDistilledPaths(self, optimizations: dict, model_dicts):
-        """
-        Create the distilled paths for loading the distilled version of chosen models
-
-        Input:
-            - optimizations: dict of optimizations
-            - model_dicts: dict of all models choosen
-        """
-
-        file_name_list = getFilenameList(models_weights_path)
-        file_name_list = [file_name for file_name in file_name_list if "_distilled" in file_name]
-
-        for model_dict in model_dicts:
-
-            best_candidate_for_model, best_file_name = "", ""
-            for file_name in file_name_list:
-
-                file_name_without_pth = file_name.removesuffix("_distilled.pth")
-
-                best_candidate_for_name = getLongestSubString(model_dict['model_name'], file_name_without_pth)
-                best_candidate_for_path = getLongestSubString(model_dict['weights_path'].split("/")[-1].removesuffix(".pth"), file_name_without_pth)
-
-                best_candidate_between_name_path = max(best_candidate_for_name, best_candidate_for_path, key=len)
-
-                if len(best_candidate_between_name_path) > len(best_candidate_for_model):
-                    best_candidate_for_model = best_candidate_between_name_path
-                    best_file_name = file_name
-
-                # Perfect Match, found the distilled weights
-                if len(file_name_without_pth) == len(best_candidate_for_model):
-                    break
-
-            if len(best_file_name.removesuffix("_distilled.pth")) == len(best_candidate_for_model):
-                logger.info(f"MODEL: {model_dict['model_name']} | YOU FOUND THE CORRECT DISTILLED MODEL {best_file_name}")
-            elif len(best_file_name) == 0:
-                logger.critical(f"MODEL: {model_dict['model_name']} | NO MATCH WITH NONE FILE FOR DISTILLED MODEL")
-                exit(0)
-            else:
-                logger.warning(f"MODEL: {model_dict['model_name']} | YOU FOUND A PARTIAL MATHC FOR A DISTILLED MODEL: {best_file_name}")
-
-            optimizations['Distillation']['distilled_paths'][model_dict['model_name']] =  f"{models_weights_path}/{best_file_name}"              
+   
 
     
 

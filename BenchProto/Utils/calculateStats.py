@@ -15,31 +15,6 @@ from Utils.utilsFunctions import getHumanReadableValue
 
 class CalculateStats:
 
-    def printStats(input: dict, topic: str) -> None:
-        """
-        Handler function to print Stas of the model on terminal.
-
-        Input:
-            - input: dict that contains couples key, value to print.
-            - topic: the topic to print at the first line
-
-        """
-        print("\n" +"-"*10 + '\x1b[32m' + topic + '\033[0m' + "-"*10)
-        for key, value in input.items():
-            if key=="Accuracy":
-                print("\n")
-                
-            if isinstance(value, float):
-                print(f"{key}: {value:.2f}")
-                continue
-            
-            print(f"{key}: {value}")
-                
-
-        print("-"*10 + "-"*len(topic)+"-"*10+"\n")
-
-
-
     def _calculateKernelStats(profile_file_path: str, num_batches: int, total_images: int, correct: int, total: int, running_loss: int) -> dict:
         """
         Parses an ONNX Runtime profile JSON file to get pure kernel statistics.
@@ -55,7 +30,7 @@ class CalculateStats:
             -running_loss: calculated loss
 
         Output:
-            A dictionary with total time, per-batch avg, and per-image avg.
+            -stats: A dictionary with total time, per-batch avg, and per-image avg.
         """
         total_kernel_time_us = 0
         total_model_run_time_us = 0
@@ -130,8 +105,9 @@ class CalculateStats:
             accuracy = 100 * correct / total
             average_loss = running_loss / total
 
+            logger.debug(f"Inference Event Path: {profile_file_path}")
+
             stats = {
-                "Inference Event Path": profile_file_path,
                 "Total 'kernel' inference time": total_kernel_time_ms,
                 "Avg. 'kernel' inference time per batch": avg_kernel_time_per_batch_ms,
                 "Avg. 'kernel' inference time per image": avg_kernel_time_per_image_ms,
@@ -174,8 +150,33 @@ class CalculateStats:
             return {}
 
 
-    def getRssTracing(process) -> int:
-        return process.memory_info().rss
+    # def getRssTracing(process) -> int:
+    #     return process.memory_info().rss
+
+    def printStats(input: dict, topic: str) -> None:
+        """
+        Handler function to print Stas of the model on terminal.
+
+        Input:
+            - input: dict that contains couples key, value to print.
+            - topic: the topic to print at the first line
+        Output:
+            - None 
+        """
+        print("\n" +"-"*10 + '\x1b[32m' + topic + '\033[0m' + "-"*10+"\n")
+        for key, value in input.items():
+            if key=="Accuracy":
+                print("\n")
+                
+            if isinstance(value, float):
+                print(f"{key}: {value:.2f}")
+                continue
+            
+            print(f"{key}: {value}")
+                
+
+        print("\n"+"-"*10 + "-"*len(topic)+"-"*10+"\n")
+
 
 
     def calculateStats(profile_file_path: str, num_batches: int, total_images: int, correct: int, total: int, running_loss: int) -> dict:
@@ -202,6 +203,7 @@ class CalculateStats:
 
         try:
             state_dict = CalculateStats._calculateKernelStats(profile_file_path, num_batches, total_images, correct, total, running_loss)
+            # TODO: RAM TRACING
         except Exception as e:
             logger.error(f"Encountered a generic error calculating kernel stats.\nThe specific error is: {e}")
 

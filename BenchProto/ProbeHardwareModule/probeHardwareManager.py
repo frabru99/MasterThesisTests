@@ -39,6 +39,8 @@ class ProbeHardwareManager():
         Input:
             - input: dict that contains couples key, value to print.
             - topic: the topic to print at the first line
+        Output:
+            - None
 
         """
         print("\n" +"-"*10 + '\x1b[32m' + topic + '\033[0m' + "-"*10)
@@ -140,12 +142,12 @@ class ProbeHardwareManager():
         
 
         if mem_infos[0] <= default_memory_total_threshold:
-            logger.error(f"The tools requires at least {getHumanReadableValue(default_memory_total_threshold)} of Total Memory to run smoothly.")
+            logger.critical(f"The tools requires at least {getHumanReadableValue(default_memory_total_threshold)} of Total Memory to run smoothly.")
             logger.info("EXITING...")
             exit(0)
 
         if mem_infos[1] <= default_memory_usage_threshold:
-            logger.error(f"The tools requires at least {getHumanReadableValue(default_memory_usage_threshold)} of Free Memory to run smoothly.")
+            logger.critical(f"The tools requires at least {getHumanReadableValue(default_memory_usage_threshold)} of Free Memory to run smoothly.")
             logger.info("EXITING...")
             exit(0)
 
@@ -175,12 +177,12 @@ class ProbeHardwareManager():
         self.__printInformations(partitions_info, " DISK USAGE INFORMATION ")
 
         if disk_usage(partition.mountpoint).total <= default_disk_total_threshold:
-            logger.error(f"The tools requires at least {getHumanReadableValue(default_disk_total_threshold)} of Total Disk.")
+            logger.critical(f"The tools requires at least {getHumanReadableValue(default_disk_total_threshold)} of Total Disk.")
             logger.info("EXITING...")
             exit(0)
 
         if  disk_usage(partition.mountpoint).free <= default_disk_usage_threshold:
-            logger.error(f"The tools requires at least {getHumanReadableValue(default_disk_usage_threshold)} of Free Disk.")
+            logger.critical(f"The tools requires at least {getHumanReadableValue(default_disk_usage_threshold)} of Free Disk.")
             logger.info("EXITING...")
             exit(0)
 
@@ -287,6 +289,12 @@ class ProbeHardwareManager():
         Checks the system characteristics, thanks to utility functions, in order to see if the target device has a
         sufficient amount of resources to execute the tool.
 
+        Input:
+            - None
+        Output:
+            - there_is_gpu: bool
+            - gpu_type: str, describes the GPU type/vendor.
+            - sys_arch: str, describes system architecture, 'x86' or 'aarch'
         """
         initialPrint("HARDWARE PROBE")
         sys_arch = self.__retrieveSysInfo()

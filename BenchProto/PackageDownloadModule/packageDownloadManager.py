@@ -60,7 +60,7 @@ class PackageDownloadManager:
         exit(0)
 
 
-    def checkDownloadedDependencies(self, there_is_gpu: bool):
+    def checkDownloadedDependencies(self, there_is_gpu: bool) -> None:
 
         """
         Checks if dependecies are already installed calling __checkingAlreadyInstalled. After, it installs the required dependencies.
@@ -68,6 +68,8 @@ class PackageDownloadManager:
 
         Input:
             - there_is_gpu: bool 
+        Output:
+            - None
         
         """
         initialPrint("DEPENDENCIES DOWNLOAD\n")
@@ -105,10 +107,10 @@ class PackageDownloadManager:
 
 
         except decoder.JSONDecodeError as e:
-            logger.error(f"Encountered an error Decoding the JSON file at path {requirements_installed_path}. It shouldn't be empty!\nThe specific error is: {e}")
+            logger.critical(f"Encountered an error Decoding the JSON file at path {requirements_installed_path}. It shouldn't be empty!\nThe specific error is: {e}")
             exit(0)
         except (FileNotFoundError,Exception) as e:
-            logger.error(f"Encountered a generic error checking the already installed dependencies.\nThe specific error is: {e}")
+            logger.critical(f"Encountered a generic error checking the already installed dependencies.\nThe specific error is: {e}")
             exit(0)
 
         
