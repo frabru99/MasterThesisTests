@@ -10,14 +10,25 @@ from json import dump
 from difflib import SequenceMatcher
 from pathlib import Path
 from subprocess import run, DEVNULL
+from json import dump
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 clean_caches_script_bash = "./" / PROJECT_ROOT / "Utils/scripts/cleancache.sh"
 
 
-def compareModelArchitecture(model1, model2):
-    # Convert models to string representations
+def compareModelArchitecture(model1: object, model2: object) -> None:
+    """ 
+    Utility function to compare two model architectures.
+
+    Input:
+        - model1: the first model object (torch model)
+        - model2: the second model object (torch model)
+    Output:
+        - None
+    """
+
+
     model1_str = str(model1).splitlines()
     model2_str = str(model2).splitlines()
 
@@ -58,9 +69,15 @@ def getHumanReadableValue(value: bytes, suffix: str="B") -> str:
                 return f"{value:.2f}{unit}{suffix}"
             value /= factor
 
-def getLongestSubString(string1, string2):
+def getLongestSubString(string1: str, string2: str) -> str:
     """
-    Return the longest substring between two strings
+    Return the longest substring between two strings. 
+
+    Input:
+        - string1
+        - string2
+    Output: 
+        - str
     """
 
     string_match = SequenceMatcher(None, string1, string2).find_longest_match(0, len(string1), 0, len(string2))
@@ -68,9 +85,14 @@ def getLongestSubString(string1, string2):
 
     return longest_substring
 
-def getFilenameList(directory_path: str):
+def getFilenameList(directory_path: str) -> list:
     """
-    Return a list of filename in a given directory
+    Return a list of filename in a given directory_path. 
+
+    Input: 
+        - directory_path: the specified path
+    Output:
+        - file_name_list: list of filenames
     """
 
     file_name_list = []
@@ -88,9 +110,9 @@ def getFilenameList(directory_path: str):
         raise FileNotFoundError(f"No files were found in this directory: {directory_path}")
         exit(0)
 
-def cleanCaches():
+def cleanCaches() -> None:
     """
-    This function writes the number 3 in /proc/sys/vm/drop_caches file in order to drop the unused pages, inodes and dentries.
+    This function writes the '3' in /proc/sys/vm/drop_caches file in order to drop the unused pages, inodes and dentries.
     Visit man proc_sys_vm manpages for more.
 
     """
@@ -106,19 +128,23 @@ def cleanCaches():
         logger.error(f"Encountered a generic problem cleaning the caches. The next measurements could be not independent.\nThe error is: {e}")
 
 
-def subRun(aimodel, inference_loader, config_id, output_file_path):
+def subRun(aimodel: object, inference_loader: object, config_id: str, output_file_path: str) -> None:
     """
-    Entry point for sub_process to do an independent inference test
-    on a single test loader
+    Entry point for a subprocess in order to execute runInference. After this, the aiModel and inference_loader are deleted
+    and the garbage collector called in an explicit way. 
 
     Input:
-        - aimodel: instance of one aiModel
-        - inference_loader: torch_dataloader to do the inference
-        - config_id: configuration id for this particular experiment
-        - output_file_path: where to write the results
+        - aimodel: aiModel object
+        - inference_loader: inference_loader object, given from DataWrapper
+        - config_id: the configuration id, needed to retrieve the model ifrom the right directory
+        - output_file_path: string for the output file path
+
+    Output:
+        - None
     """
     
     try:
+        logger.info("STARTING INFERENCE...")
         stats = aimodel.runInference(inference_loader, config_id)
 
         del aimodel
@@ -128,10 +154,10 @@ def subRun(aimodel, inference_loader, config_id, output_file_path):
         with open(output_file_path, 'w') as f:
             dump(stats, f, indent=4)
                 
-        logger.debug(f"WORKER: Stats successfully written to {output_file_path}")
+        logger.info(f"WORKER: Stats successfully written to {output_file_path}")
 
     except Exception as e:
-        logger.error(f"SubProcess CRASHED")
+        logger.error(f"SubProcess CRASHED: {e}")
 
 def subRunQueue(aimodel, inference_loader, config_id, queue):
     """
@@ -148,5 +174,18 @@ def subRunQueue(aimodel, inference_loader, config_id, queue):
         queue.put({"status": "error", "message": str(e)})
 
 
+
+def initialPrint(topic: str) -> None:
+    """
+    Utility function in order to print the main section of the execution in violet. 
+
+    Input:
+        - topic: main section title
+
+    Output:
+        - None
+    """
+
+    print("\n\t\t"+ '\x1b[35m' + topic + '\033[0m')
 
 

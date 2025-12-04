@@ -11,6 +11,7 @@ from subprocess import check_call
 from sys import executable
 from importlib.metadata import distributions
 from time import sleep
+from Utils.utilsFunctions import initialPrint
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 requirements_file_needed_path = str(PROJECT_ROOT / "PackageDownloadModule" / "requirementsFileDirectory" / "needed.txt" )
@@ -22,36 +23,6 @@ class PackageDownloadManager:
 
     def __init__(self):
         pass
-    
-    # def __init__(self):
-    #     self.__needed_reqs, self.__gpu_reqs = self.__loadRequirements()
-        
-
-    # def __loadRequirements(self) -> (dict, dict):
-
-    #     needed = {}
-    #     gpu = {}
-
-    #     path_files = [requirements_file_needed_path, requirements_file_gpu_path]
-    #     try:
-    #         for idx, path in enumerate(path_files):
-    #             with open(path, "r") as file:
-
-    #                 for line in file:
-    #                     line = line.strip()
-    #                     values = line.split("==")
-
-    #                     if idx==0:
-    #                         needed[values[0].lower()] = values[1]
-    #                     else:
-    #                         gpu[values[0].lower()] = values[1]
-                            
-    #         return needed, gpu
-                
-    #     except (FileNotFoundError, Exception) as e:
-    #         logger.error(f"Encountered an error retrieving the needed dependencies. Please check {requirements_file_needed_path} file.\nThe specific error is: {e}")
-    #         exit(0)
-
 
 
     def __checkAlreadyInstalled(self, there_is_gpu: bool) -> (bool, bool):
@@ -84,12 +55,12 @@ class PackageDownloadManager:
             return True, False
 
         except (FileNotFoundError,Exception) as e:
-            logger.error(f"Encountered a generic error checking the already installed dependencies.\nThe specific error is: {e}")
+            logger.critical(f"Encountered a generic error checking the already installed dependencies.\nThe specific error is: {e}")
         
         exit(0)
 
 
-    def checkDownloadedDependencies(self, there_is_gpu: bool):
+    def checkDownloadedDependencies(self, there_is_gpu: bool) -> None:
 
         """
         Checks if dependecies are already installed calling __checkingAlreadyInstalled. After, it installs the required dependencies.
@@ -97,9 +68,11 @@ class PackageDownloadManager:
 
         Input:
             - there_is_gpu: bool 
+        Output:
+            - None
         
         """
-
+        initialPrint("DEPENDENCIES DOWNLOAD\n")
         installed_requirements_dict={}
 
         try:
@@ -110,34 +83,34 @@ class PackageDownloadManager:
             installNeeded, installGpu = self.__checkAlreadyInstalled(there_is_gpu)
             
             if installNeeded:
-                logger.info(f"INSTALLING NEEDED DEPENDENCIES...\n")
+                logger.info(f"INSTALLING NEEDED DEPENDENCIES...")
                 sleep(1)
                 check_call([executable, '-m', 'pip', 'install', '-r', requirements_file_needed_path, '--force-reinstall'])
                 installed_requirements_dict["needed"] = True
             else:
-                logger.info(f"NEEDED DEPENDENCIES ALREADY PRESENT...\n")
+                logger.info(f"NEEDED DEPENDENCIES ALREADY PRESENT...")
 
 
             if installGpu:
-                logger.info(f"INSTALLING GPU DEPENDENCIES...\n")
+                logger.info(f"INSTALLING GPU DEPENDENCIES...")
                 sleep(1)
                 check_call([executable, '-m', 'pip', 'install', '-r', requirements_file_gpu_path, '--force-reinstall'])
                 installed_requirements_dict["gpu"] = True
             else:
-                logger.info(f"GPU DEPENDENCIES ALREADY PRESENT OR NOT NEEDED...\n")
+                logger.info(f"GPU DEPENDENCIES ALREADY PRESENT OR NOT NEEDED...")
 
             if installed_requirements_dict and (installNeeded or installGpu):
                 with open(requirements_installed_path, "w") as installed_requirements_file:
                     dump(installed_requirements_dict, installed_requirements_file, indent=4)
                 
-            logger.info("ALL DEPENDENCIES INSTALLED! IF THERE ARE PROBLEMS, MAKE A FORCE-REINSTALL OF THE DEPENDENCIES WITHOUT CACHING.\n")
+            logger.info("ALL DEPENDENCIES INSTALLED! IF THERE ARE PROBLEMS, MAKE A FORCE-REINSTALL OF THE DEPENDENCIES WITHOUT CACHING.")
 
 
         except decoder.JSONDecodeError as e:
-            logger.error(f"Encountered an error Decoding the JSON file at path {requirements_installed_path}. It shouldn't be empty!\nThe specific error is: {e}")
+            logger.critical(f"Encountered an error Decoding the JSON file at path {requirements_installed_path}. It shouldn't be empty!\nThe specific error is: {e}")
             exit(0)
         except (FileNotFoundError,Exception) as e:
-            logger.error(f"Encountered a generic error checking the already installed dependencies.\nThe specific error is: {e}")
+            logger.critical(f"Encountered a generic error checking the already installed dependencies.\nThe specific error is: {e}")
             exit(0)
 
         

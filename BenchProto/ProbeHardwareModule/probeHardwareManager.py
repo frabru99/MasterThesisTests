@@ -10,12 +10,11 @@ from GPUtil import getGPUs
 from pyamdgpuinfo import detect_gpus, get_gpu
 from platform import uname
 from rich.pretty import pprint
-from Utils.utilsFunctions import getHumanReadableValue
-
+from Utils.utilsFunctions import getHumanReadableValue, initialPrint
 
 #Tests
-from PackageDownloadModule.packageDownloadManager import PackageDownloadManager
-from ConfigurationModule.configurationManager import ConfigManager
+#from PackageDownloadModule.packageDownloadManager import PackageDownloadManager
+#from ConfigurationModule.configurationManager import ConfigManager
 
 #TODO: Take some measurements in order to set the REAL thresholds.
 default_hardware_empty_message="N.A."
@@ -40,9 +39,11 @@ class ProbeHardwareManager():
         Input:
             - input: dict that contains couples key, value to print.
             - topic: the topic to print at the first line
+        Output:
+            - None
 
         """
-        print(topic + "\n")
+        print("\n" +"-"*10 + '\x1b[32m' + topic + '\033[0m' + "-"*10)
         for key, value in input.items():
             if isinstance(value, dict):
                 print(f"{key} ")
@@ -50,8 +51,7 @@ class ProbeHardwareManager():
                     print(f"\t{value_keys}: {value_number if value_number else default_hardware_empty_message}")
                 continue
             print(f"{key}: {value if value else default_hardware_empty_message}")
-
-        print("\n")
+        print("-"*10 + "-"*len(topic)+"-"*10+"\n")
 
 
     def __retrieveSysInfo(self) -> str:
@@ -70,7 +70,7 @@ class ProbeHardwareManager():
             "Machine/Processor": uname.machine if uname.machine else default_hardware_empty_message,
         }
 
-        self.__printInformations(sysinfo, "SYSTEM INFORMATIONS")
+        self.__printInformations(sysinfo, " SYSTEM INFORMATION ")
 
         arch_info = ""
 
@@ -103,7 +103,7 @@ class ProbeHardwareManager():
             "CPU Usage (%)": f"{cpu_usage}%"
         }
 
-        self.__printInformations(cpuinfo, "CPU INFORMATIONS")
+        self.__printInformations(cpuinfo, " CPU INFORMATION ")
 
         if cpu_usage >= default_cpu_usage_threshold:
             while True:
@@ -138,16 +138,16 @@ class ProbeHardwareManager():
             "Percent ": vmem.percent
         }
 
-        self.__printInformations(memoryinfo, "MEMORY USAGE INFORMATIONS")
+        self.__printInformations(memoryinfo, " MEMORY USAGE INFORMATION ")
         
 
         if mem_infos[0] <= default_memory_total_threshold:
-            logger.error(f"The tools requires at least {getHumanReadableValue(default_memory_total_threshold)} of Total Memory to run smoothly.")
+            logger.critical(f"The tools requires at least {getHumanReadableValue(default_memory_total_threshold)} of Total Memory to run smoothly.")
             logger.info("EXITING...")
             exit(0)
 
         if mem_infos[1] <= default_memory_usage_threshold:
-            logger.error(f"The tools requires at least {getHumanReadableValue(default_memory_usage_threshold)} of Free Memory to run smoothly.")
+            logger.critical(f"The tools requires at least {getHumanReadableValue(default_memory_usage_threshold)} of Free Memory to run smoothly.")
             logger.info("EXITING...")
             exit(0)
 
@@ -174,15 +174,15 @@ class ProbeHardwareManager():
                 # if "home" in partition.mountpoint:
                 #     break
     
-        self.__printInformations(partitions_info, "DISK USAGE INFORMATIONS")
+        self.__printInformations(partitions_info, " DISK USAGE INFORMATION ")
 
         if disk_usage(partition.mountpoint).total <= default_disk_total_threshold:
-            logger.error(f"The tools requires at least {getHumanReadableValue(default_disk_total_threshold)} of Total Disk.")
+            logger.critical(f"The tools requires at least {getHumanReadableValue(default_disk_total_threshold)} of Total Disk.")
             logger.info("EXITING...")
             exit(0)
 
         if  disk_usage(partition.mountpoint).free <= default_disk_usage_threshold:
-            logger.error(f"The tools requires at least {getHumanReadableValue(default_disk_usage_threshold)} of Free Disk.")
+            logger.critical(f"The tools requires at least {getHumanReadableValue(default_disk_usage_threshold)} of Free Disk.")
             logger.info("EXITING...")
             exit(0)
 
@@ -244,6 +244,7 @@ class ProbeHardwareManager():
             gpus = getGPUs()
 
             if len(gpus)>0:
+                logger.info(f"AT LEAST ONE NVIDIA GPU FOUND.\n")
                 for i, gpu in enumerate(gpus):
                     gpu_info[f"NVIDIA GPU {i} Name"] = gpu.name if gpu.name else "NVIDIA GPU {i}"
                     gpu_info[f"VRAM Usage NVIDIA {i}"] = gpu.memoryUsed if gpu.memoryUsed else default_hardware_empty_message
@@ -278,7 +279,7 @@ class ProbeHardwareManager():
         there_is_gpu, gpu_type = self.__checkAMDGpuAvailability(gpu_info, there_is_gpu, gpu_type)
 
         if gpu_info:
-            self.__printInformations(gpu_info, "GPU INFORMATIONS")
+            self.__printInformations(gpu_info, " GPU INFORMATION ")
 
         return there_is_gpu, gpu_type
 
@@ -288,7 +289,14 @@ class ProbeHardwareManager():
         Checks the system characteristics, thanks to utility functions, in order to see if the target device has a
         sufficient amount of resources to execute the tool.
 
+        Input:
+            - None
+        Output:
+            - there_is_gpu: bool
+            - gpu_type: str, describes the GPU type/vendor.
+            - sys_arch: str, describes system architecture, 'x86' or 'aarch'
         """
+        initialPrint("HARDWARE PROBE")
         sys_arch = self.__retrieveSysInfo()
         self.__retrieveCpuUsage()
         self.__retrieveMemoryUsage()
@@ -297,66 +305,66 @@ class ProbeHardwareManager():
 
 
         if not there_is_gpu:
-            logger.info("GPU INSTANCES NOT FOUND.\n")
+            logger.info("GPU INSTANCES NOT FOUND.")
         else:
-            logger.info(f"GPU {gpu_type} FOUND! YOU CAN MAY HAVE SOME TROUBLES WITH THE EXECUTION. MAKE SURE THAT ALL THE DEPENDENCIES FOR GPU INFERENCING ARE INSTALLED AND SETTED.\n")
+            logger.info(f"GPU {gpu_type} FOUND! YOU CAN MAY HAVE SOME TROUBLES WITH THE EXECUTION. MAKE SURE THAT ALL THE DEPENDENCIES FOR GPU INFERENCING ARE INSTALLED AND SETTED.")
 
         return there_is_gpu, gpu_type, sys_arch
 
 
 
-if __name__=="__main__":
-    logger.info("PROBING HARDWARE RESOURCES...\n")
-    probe = ProbeHardwareManager()
+# if __name__=="__main__":
+#     logger.info("PROBING HARDWARE RESOURCES...\n")
+#     probe = ProbeHardwareManager()
 
-    there_is_gpu, gpu_type, sys_arch = probe.checkSystem()
-
-
-    pdm = PackageDownloadManager()
-
-    pdm.checkDownloadedDependencies(there_is_gpu)
-
-    cm = ConfigManager(sys_arch, there_is_gpu)
+#     there_is_gpu, gpu_type, sys_arch = probe.checkSystem()
 
 
-    configTest = {
-        "models": [
-            {
-                "model_name": "mobilenet_v2", 
-                "native": True
-            },
-            {
-                "module": "torchvision.models",
-                "model_name": "efficientnet", 
-                "native": False,
-                "distilled": False,
-                "weights_path": "./ModelData/Weights/casting_efficientnet_b0.pth",
-                "device": "gpu",
-                "class_name": "efficientnet_b0",
-                "weights_class": "EfficientNet_B0_Weights", 
-                "image_size": 224,
-                "num_classes": 1000,
-                "task": "classification",
-                "description": "EfficientNet from Custom Models"
-            }
-        ],
-        "optimizations": {
-            "Quantization": {
-                "method": "QInt8",
-                "type":"static" 
-            },
-            "Pruning": {
-                "method": "L1Unstructured",
-                "amount": 0.7
-            }
-        },
-        "dataset": {
-            "data_dir": "./ModelData/Dataset/dataset_name",
-            "batch_size": 32
-        }
-    }
+#     pdm = PackageDownloadManager()
 
-    hash_val = cm.createConfigFile(configTest)
+#     pdm.checkDownloadedDependencies(there_is_gpu)
+
+#     cm = ConfigManager(sys_arch, there_is_gpu)
+
+
+#     configTest = {
+#         "models": [
+#             {
+#                 "model_name": "mobilenet_v2", 
+#                 "native": True
+#             },
+#             {
+#                 "module": "torchvision.models",
+#                 "model_name": "efficientnet", 
+#                 "native": False,
+#                 "distilled": False,
+#                 "weights_path": "./ModelData/Weights/casting_efficientnet_b0.pth",
+#                 "device": "gpu",
+#                 "class_name": "efficientnet_b0",
+#                 "weights_class": "EfficientNet_B0_Weights", 
+#                 "image_size": 224,
+#                 "num_classes": 1000,
+#                 "task": "classification",
+#                 "description": "EfficientNet from Custom Models"
+#             }
+#         ],
+#         "optimizations": {
+#             "Quantization": {
+#                 "method": "QInt8",
+#                 "type":"static" 
+#             },
+#             "Pruning": {
+#                 "method": "L1Unstructured",
+#                 "amount": 0.7
+#             }
+#         },
+#         "dataset": {
+#             "data_dir": "./ModelData/Dataset/dataset_name",
+#             "batch_size": 32
+#         }
+#     }
+
+#     hash_val = cm.createConfigFile(configTest)
 
 
 

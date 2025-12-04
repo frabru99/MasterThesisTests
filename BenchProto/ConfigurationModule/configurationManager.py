@@ -13,7 +13,7 @@ from pathlib import Path
 from numpy import delete
 from pathlib import Path
 from hashlib import sha224
-from Utils.utilsFunctions import getLongestSubString, getFilenameList
+from Utils.utilsFunctions import getLongestSubString, getFilenameList, initialPrint
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -25,7 +25,7 @@ optimizations_library_path = str(PROJECT_ROOT / "ConfigurationModule" / "ConfigF
 models_weights_path = str(PROJECT_ROOT / "ModelData" / "Weights") #weights of embedded models in the framework
 VALID_CHOICES = {'y','n'} #Choices for CPU Usage
 OPTIMIZATIONS_NEED_ARCH = {"Quantization"} #Optimizations that needs the arch type of the system.
-OPTIMIZATION_NEED_N = {"LnStructured"}
+OPTIMIZATION_NEED_N = {"LnStructured"} #Optimizations methods that needs the 'n' parameter
 
 error_dataset_path_message =""" 
 ├── ModelData/
@@ -45,6 +45,11 @@ class ConfigManager:
         """
         Creates the ConfigManger object, loading the JSON Schema which the configuration have
         to be complaiant with.
+
+        Input:
+            - arch: architecture type given from ProbeHardwareModule
+            - there_is_gpu: bool
+            - schema_path: path to the JSON config schema
         
         """
         try:
@@ -64,8 +69,10 @@ class ConfigManager:
         Input: 
             - input: the element to print on the screen
             - topic: the specific topic of that element
+        Output:
+            -None
         """
-        print("\n" +"-"*10 + topic + "-"*10)
+        print("\n" +"-"*10 + '\x1b[32m' + topic + '\033[0m' + "-"*10)
         pprint(input, expand_all=True)
         print("-"*10 + "-"*len(topic)+"-"*10+"\n")
 
@@ -129,8 +136,8 @@ class ConfigManager:
 
                 models = delete(models, idx_to_del).tolist() #Deleting the "native" models not present in models_library
                 if len(models)==0:
-                    logger.info("NO MODEL PRESENT IN THE CONFIGURATION. EXITING....")
-                    exit(0)
+                    logger.critical("NO MODEL PRESENT IN THE CONFIGURATION. EXITING....")
+                    return False
 
                 logger.info(f"SHOWING NEW MODELS CONFIGURATION...")
                 self.__printConfigFile(models, " MODELS SECTION ")
@@ -148,12 +155,13 @@ class ConfigManager:
 
 
 
-    def __checkOptimizations(self, optimizations: dict, model_dicts) -> bool:
+    def __checkOptimizations(self, optimizations: dict, model_dicts: list) -> bool:
         """
         Checks the availability of optimization methods wrote in config file. 
 
         Input: 
-            - optimizations: the list of chosen optimizations from the configuration file.
+            - optimizations: the dict of chosen optimizations from the configuration file.
+            - model_dicts: list of chosen models
         Output:
             - result: bool
         """
@@ -200,8 +208,8 @@ class ConfigManager:
                     
 
             if len(optimizations) == 0:
-                logger.info("NO OPTIMIZATIONS PRESENT IN THE CONFIGURATION. EXITING....")
-                exit(0)   
+                logger.critical("NO OPTIMIZATIONS PRESENT IN THE CONFIGURATION.")
+                return False
 
             if "Distillation" in optimizations.keys():
                 if optimizations['Distillation']['method']:
@@ -215,22 +223,22 @@ class ConfigManager:
         return True
 
 
-    def __checkDataset(self, dataset: dict) -> bool:
+    def __checkDataset(self, dataset_dict: dict) -> bool:
         """
         Checks if the dataset path specified contains at least one file. The validity of the dataset will be checked later. 
 
         Input: 
-            - dataset: the dict of dataset section in config file
+            - dataset_dict: the dict of dataset section in config file
         Output:
             - result: bool
         """
 
-        dataset_path = dataset["data_dir"] + "/test"
+        dataset_path = dataset_dict["data_dir"] + "/test"
 
         logger.info(f"CHECKING DATASET PATH...")
         if exists(dataset_path) and len(listdir(dataset_path))>1:
             logger.info(f"DATASET PATH RECOGNISED!")
-            self.__printConfigFile(dataset, " DATASET SECTION ")
+            self.__printConfigFile(dataset_dict, " DATASET SECTION ")
             return True
         
         logger.error(f"Dataset path not recognised! You should have this path configuration (with at least two classes):")
@@ -247,6 +255,9 @@ class ConfigManager:
 
         Input:
             - config: the created/loaded configuration
+            - hash_value: the hash value created from the configuration (config_id)
+        Output:
+            - None
         
         """
     
@@ -261,7 +272,6 @@ class ConfigManager:
 
             except decoder.JSONDecodeError as e:
                 logger.info(f"THE HISTORY FILE WAS EMPTY!")
-
 
 
         while True:
@@ -286,104 +296,32 @@ class ConfigManager:
             break
         print("\n")
 
-        
 
-    def loadConfigFile(self, path=config_path) -> (dict, str):
+    def __addArchType(self, config: dict) -> None:
+
         """
-        Loads the configuration from a JSON file. 
+        Adds the architecture type ('x86' or 'aarch') to the config file. 
 
-        Input: 
-            -path: path of the configuration file. It should be a JSON file. 
-        Output: 
-            -config: the dict that contains the configuration. 
-            -hash_value: the hash value generated on config file
+        Input:
+            - config: the config dict
+        Output:
+            - None
         """
-
-        config = ""
-        try:
-            with open(path, "r") as config_file:
-                config = load(config_file)
-                logger.info("LOADING CONFIGURATON...")
-
-        
-            logger.info("VALIDATING LOADED CONFIGURATION...")
-            validate(instance=config, schema=self.__schema)
-
-        except (ValidationError, Exception) as e:
-            logger.error(f"Encountered a problem validating the config file. Check if the fields provided are correct.\nThe specific error is: {e}.\n")
-            exit(0)
-    
-        logger.info("CONFIGURATION FILE CORRECTLY VALIDATED! \n")
-        self.__printConfigFile(config, " INITIAL CONF. FILE ")
-
-        logger.info("CHECKING THE MODELS...")
-        
-        if self.__checkModels(config["models"]) and self.__checkDataset(config["dataset"]) and self.__checkOptimizations(config["optimizations"], config["models"]):
-            logger.info("DONE!")
-            self.__printConfigFile(config, " FINAL CONF. FILE ")
-            hash_value = sha224(str(config).encode("utf-8")).hexdigest()
-            self.__updateConfigHistory(config, hash_value)
-            #Arch for Quantization Optimization
-            self.__addArchType(config)
-            return config, hash_value
-        else:
-            logger.info(f"EXITING...\n")
-            return None, None
-
-
-    def __addArchType(self, config: dict):
 
         for optimization in OPTIMIZATIONS_NEED_ARCH:
                 if optimization in config["optimizations"]:
                     config["optimizations"][optimization]["arch"] = self.__arch
 
-    
-    def createConfigFile(self, config: dict) -> str:
+
+    def __createDistilledPaths(self, optimizations: dict, model_dicts: list) -> None:
         """
-        Creates the configuration file from a constructed dict created by the interactive CLI session.
-
-        Input: 
-            - config: the config dict generated from interactive session
-
-        Output:
-            - hash_value: returns the hash_value of the config for id purposes
-        
-        """
-
-        # It's an useless check, but we'll never know!
-        try:
-            logger.info("VALIDATING CREATED CONFIGURATON...")
-            validate(instance=config, schema=self.__schema)
-        except (ValidationError, Exception) as e:
-            logger.error(f"Encountered a problem validating the config file. Check if the fields provided are correct. \n The specific error is: {e}.\n")
-            exit(0)
-
-        logger.info("CONFIGURATION FILE CORRECTLY VALIDATED! \n")
-
-        if self.__checkModels(config["models"]) and self.__checkDataset(config["dataset"]) and self.__checkOptimizations(config["optimizations"], config['models']):
-            logger.info("DONE!")
-            self.__printConfigFile(config, " FINAL CONF. FILE ")
-            logger.info(f"SAVING IT INTO {config_path}...")
-
-            with open(config_path, "w") as config_file:
-                dump(config, config_file, indent=4)
-
-            logger.info(f"SAVED!")
-
-            hash_value = sha224(str(config).encode("utf-8")).hexdigest()
-            self.__updateConfigHistory(config, hash_value)
-            self.__addArchType(config)
-            return hash_value
-        else:
-            logger.info(f"EXITING...\n")
-
-    def __createDistilledPaths(self, optimizations: dict, model_dicts):
-        """
-        Create the distilled paths for loading the distilled version of chosen models
+        Creates the paths for loading the distilled version of chosen models.
 
         Input:
             - optimizations: dict of optimizations
-            - model_dicts: dict of all models choosen
+            - model_dicts: list of all models choosen
+        Output:
+            - None
         """
 
         file_name_list = getFilenameList(models_weights_path)
@@ -412,65 +350,151 @@ class ConfigManager:
             if len(best_file_name.removesuffix("_distilled.pth")) == len(best_candidate_for_model):
                 logger.info(f"MODEL: {model_dict['model_name']} | YOU FOUND THE CORRECT DISTILLED MODEL {best_file_name}")
             elif len(best_file_name) == 0:
-                logger.error(f"MODEL: {model_dict['model_name']} | NO MATCH WITH NONE FILE FOR DISTILLED MODEL")
+                logger.critical(f"MODEL: {model_dict['model_name']} | NO MATCH WITH NONE FILE FOR DISTILLED MODEL")
                 exit(0)
             else:
                 logger.warning(f"MODEL: {model_dict['model_name']} | YOU FOUND A PARTIAL MATHC FOR A DISTILLED MODEL: {best_file_name}")
 
-            optimizations['Distillation']['distilled_paths'][model_dict['model_name']] =  f"{models_weights_path}/{best_file_name}"              
+            optimizations['Distillation']['distilled_paths'][model_dict['model_name']] =  f"{models_weights_path}/{best_file_name}"           
+
+
+    def loadConfigFile(self, path=config_path) -> (dict, str):
+        """
+        Loads the configuration from a JSON file. 
+
+        Input: 
+            -path: path of the configuration file. It should be a JSON file. 
+        Output: 
+            -config: the dict that contains the configuration. 
+            -hash_value: the hash value generated on config file
+        """
+        initialPrint("CONFIGURATION FILE")
+        config = ""
+        try:
+            with open(path, "r") as config_file:
+                config = load(config_file)
+                logger.info("LOADING CONFIGURATON...")
+
+        
+            logger.info("VALIDATING LOADED CONFIGURATION...")
+            validate(instance=config, schema=self.__schema)
+
+        except (ValidationError, Exception) as e:
+            logger.critical(f"Encountered a problem validating the config file. Check if the fields provided are correct.\nThe specific error is: {e}.\n")
+            exit(0)
+    
+        logger.info("CONFIGURATION FILE CORRECTLY VALIDATED! \n")
+        self.__printConfigFile(config, " INITIAL CONF. FILE ")
+
+        logger.info("CHECKING THE MODELS...")
+        
+        if self.__checkModels(config["models"]) and self.__checkDataset(config["dataset"]) and self.__checkOptimizations(config["optimizations"], config["models"]):
+            logger.info("DONE!")
+            self.__printConfigFile(config, " FINAL CONF. FILE ")
+            hash_value = sha224(str(config).encode("utf-8")).hexdigest()
+            self.__updateConfigHistory(config, hash_value)
+            #Arch for Quantization Optimization
+            self.__addArchType(config)
+            return config, hash_value
+        else:
+            logger.info(f"EXITING...\n")
+
+    
+    def createConfigFile(self, config: dict) -> str:
+        """
+        Creates the configuration file from a constructed dict created by the interactive CLI session.
+
+        Input: 
+            - config: the config dict generated from interactive session
+
+        Output:
+            - hash_value: returns the hash_value of the config for id purposes
+        
+        """
+
+        initialPrint("CONFIGURATION FILE CHECKING\n")
+
+        try:
+            # It's an useless check, but we'll never know!
+            logger.info("VALIDATING CREATED CONFIGURATON...")
+            validate(instance=config, schema=self.__schema)
+        except (ValidationError, Exception) as e:
+            logger.critical(f"Encountered a problem validating the config file. Check if the fields provided are correct.\nThe specific error is: {e}.\n")
+            exit(0)
+
+        logger.info("CONFIGURATION FILE CORRECTLY VALIDATED! \n")
+
+        if self.__checkModels(config["models"]) and self.__checkDataset(config["dataset"]) and self.__checkOptimizations(config["optimizations"], config['models']):
+            logger.info("DONE!")
+            self.__printConfigFile(config, " FINAL CONFIGURATION FILE ")
+            logger.info(f"SAVING IT INTO {config_path}...")
+
+            with open(config_path, "w") as config_file:
+                dump(config, config_file, indent=4)
+
+            logger.info(f"SAVED!")
+
+            hash_value = sha224(str(config).encode("utf-8")).hexdigest()
+            self.__updateConfigHistory(config, hash_value)
+            self.__addArchType(config)
+            return hash_value
+        else:
+            logger.info(f"EXITING...\n")
+
+   
 
     
 
-if __name__ == "__main__":
+# if __name__ == "__main__":
 
 
-    configTest = {
-        "models": [
-            {
-                "model_name": "mobilenet_v2", 
-                "native": True
-            },
-            {
-                "module": "torchvision.models",
-                "model_name": "efficientnet", 
-                "native": False,
-                "distilled": False,
-                "weights_path": "./ModelData/Weights/casting_efficientnet_b0.pth",
-                "device": "cpu",
-                "class_name": "efficientnet_b0",
-                "weights_class": "EfficientNet_B0_Weights", 
-                "image_size": 224,
-                "num_classes": 1000,
-                "task": "classification",
-                "description": "EfficientNet from Custom Models"
-            }
-        ],
-        "optimizations": {
-            "Quantization": {
-                "method": "QInt8",
-                "type":"static" 
-            },
-            "Pruning": {
-                "method": "L1Unstructured",
-                "amount": 0.7
-            },
-            "Distillation": {
-                'method': True,
-                'distilled_paths': {}
-            }
-        },
-        "dataset": {
-            "data_dir": "./ModelData/Dataset/casting_data",
-            "batch_size": 32
-        }
-    }
+#     configTest = {
+#         "models": [
+#             {
+#                 "model_name": "mobilenet_v2", 
+#                 "native": True
+#             },
+#             {
+#                 "module": "torchvision.models",
+#                 "model_name": "efficientnet", 
+#                 "native": False,
+#                 "distilled": False,
+#                 "weights_path": "./ModelData/Weights/casting_efficientnet_b0.pth",
+#                 "device": "cpu",
+#                 "class_name": "efficientnet_b0",
+#                 "weights_class": "EfficientNet_B0_Weights", 
+#                 "image_size": 224,
+#                 "num_classes": 1000,
+#                 "task": "classification",
+#                 "description": "EfficientNet from Custom Models"
+#             }
+#         ],
+#         "optimizations": {
+#             "Quantization": {
+#                 "method": "QInt8",
+#                 "type":"static" 
+#             },
+#             "Pruning": {
+#                 "method": "L1Unstructured",
+#                 "amount": 0.7
+#             },
+#             "Distillation": {
+#                 'method': True,
+#                 'distilled_paths': {}
+#             }
+#         },
+#         "dataset": {
+#             "data_dir": "./ModelData/Dataset/casting_data",
+#             "batch_size": 32
+#         }
+#     }
 
 
-    configManager = ConfigManager(arch="x86", there_is_gpu=False)
+#     configManager = ConfigManager(arch="x86", there_is_gpu=False)
 
-    #configFile, hash_value = configManager.loadConfigFile()
+#     #configFile, hash_value = configManager.loadConfigFile()
 
-    hash_value = configManager.createConfigFile(configTest)
+#     hash_value = configManager.createConfigFile(configTest)
 
 
 
