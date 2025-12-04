@@ -5,3 +5,4 @@ pillow==12.0.0
 torch==2.9.0
 torchvision==0.24.0
 torch-pruning==1.6.1
+tqdm
