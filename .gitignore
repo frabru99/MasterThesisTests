@@ -10,4 +10,4 @@ BenchProto/ModelData/Dataset/*
 *.csv
 __pycache__
 BenchProto/ModelData/ONNXModels
-BenchProto/Plots
+BenchProto/Plots/*.png
