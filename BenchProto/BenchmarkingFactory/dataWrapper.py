@@ -39,7 +39,7 @@ class DataWrapper():
         else:
             weights = getattr(weights_class, parts[1])
 
-        image_size = model_info['image_size']
+        #image_size = model_info['image_size']
 
         return transforms.Compose([
             weights.transforms()

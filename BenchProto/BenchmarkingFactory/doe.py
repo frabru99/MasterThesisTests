@@ -441,11 +441,25 @@ if __name__ == "__main__":
 
     config = {
         "models": [
+        
+            {
+                'module': 'torchvision.models',
+                'model_name': "mnasnet1_0",
+                'native': False,
+                'weights_path': "./ModelData/Weights/mnasnet1_0.pth",
+                'device': "cpu",
+                'class_name': 'mnasnet1_0',
+                'weights_class': 'MNASNet1_0_Weights.DEFAULT',
+                'image_size': 224,
+                'num_classes': 2,
+                "task": "classification",
+                'description': 'mnasnet_v2 from torchvision'
+            },
             {
                 "module": "torchvision.models",
                 "model_name": "mobilenet_v2",
                 "native": False,
-                "weights_path": "ModelData/Weights/mobilenet_v2.pth",
+                "weights_path": "./ModelData/Weights/mobilenet_v2.pth",
                 "device": "cpu",
                 "class_name": "mobilenet_v2",
                 "weights_class": "MobileNet_V2_Weights.DEFAULT", 
@@ -457,29 +471,17 @@ if __name__ == "__main__":
             {
                 "model_name": "efficientnet",
                 "native": True
-            },
-            {
-                'module': 'torchvision.models',
-                'model_name': "mnasnet1_0",
-                'native': False,
-                'weights_path': "ModelData/Weights/mnasnet1_0.pth",
-                'device': "cpu",
-                'class_name': 'mnasnet1_0',
-                'weights_class': 'MNASNet1_0_Weights.DEFAULT',
-                'image_size': 224,
-                'num_classes': 2,
-                "task": "classification",
-                'description': 'mnasnet_v2 from torchvision'
             }
         ],
         "optimizations": {
             "Quantization": {
-                "method": "QInt8",
+                "method": "QUInt8",
                 "type": "static"
             }, 
             "Pruning": {
-                "method": "Random", 
-                "amount": 0.3
+                "method": "LnStructured", 
+                "amount": 0.10,
+                "n":1
             },
             "Distillation":{
                 "method": True,

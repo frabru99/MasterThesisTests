@@ -1,13 +1,13 @@
 #!/bin/bash
 
-echo "[BASE DEPENDENCIES INSTALLATION...]"
+echo -e "[BASE DEPENDENCIES INSTALLATION...]\n"
 
 source venv/bin/activate
 python3.10 -m pip install -r requirements.txt
 chmod +x ./Utils/scripts/cleancache.sh
 #De-comment this line in order to not prompt sudo password request during the execution...
 
-echo " " && echo "[DROP CACHES]"
+echo -e "\n[DROP CACHES] \n"
 echo "Searching if tee has root grand in sudoers file to modify /proc/sys/vm/drop_caches. May ask password for checking..."
 
 
