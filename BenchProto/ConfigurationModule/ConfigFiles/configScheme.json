@@ -74,10 +74,9 @@
             "Quantization": {
                 "description": "Quantization level object", 
                 "type": "object",
-                "required": ["method", "type"],
+                "required": ["method"],
                 "properties": {
-                    "method": {"type": "string"},
-                    "type": {"enum": ["static", "dynamic"]}
+                    "method": {"type": "string"}
                 }
             }, 
             "Pruning": {

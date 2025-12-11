@@ -11,6 +11,8 @@ from difflib import SequenceMatcher
 from pathlib import Path
 from subprocess import run, DEVNULL
 from json import dump
+from tqdm import tqdm
+import torch.nn as nn
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
@@ -189,3 +191,28 @@ def initialPrint(topic: str) -> None:
     print("\n\t\t"+ '\x1b[35m' + topic + '\033[0m')
 
 
+def trainEpoch(model, loader, criterion, optimizer, device):
+    model.train()
+    running_loss = 0.0
+    for inputs, labels in tqdm(loader):
+        inputs, labels = inputs.to(device), labels.to(device)
+        optimizer.zero_grad()
+        nn.functional.dropout(inputs, p=0.5, training=True)
+        loss = criterion(model(inputs), labels)
+        loss.backward()
+        optimizer.step()
+        running_loss += loss.item() * inputs.size(0)
+    return running_loss / len(loader.dataset)
+
+
+def checkModelExistence(aimodel: object, config_id: str)-> bool:
+
+    model_name = aimodel.getAllInfo()['model_name']
+    onnx_directory_path = PROJECT_ROOT / "ModelData" / "ONNXModels" / f"{config_id}" 
+    onnx_model_path = onnx_directory_path /f"{model_name}.onnx"
+
+    if onnx_model_path.exists():
+        logger.info(f"ONNX file of {model_name} already exists at {onnx_model_path}")
+        return True#TO PASS THE CREATION IF IT ALREADY EXISTS 
+
+    return False
