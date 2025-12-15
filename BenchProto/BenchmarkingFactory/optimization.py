@@ -84,10 +84,13 @@ class PruningOptimization(Optimization):
 
 
         #for Fine Tuning
-        steps=1
-        optimizer = optim.Adam([p for p in model_to_prune.parameters() if p.requires_grad], lr=0.01)
+        steps=3
+        optimizer = optim.SGD([p for p in model_to_prune.parameters() if p.requires_grad], lr=0.01, momentum=0.7)
+        #optimizer = optim.Adam([p for p in model_to_prune.parameters() if p.requires_grad], lr=0.01)
         criterion = nn.CrossEntropyLoss()
         #for Fine Tuning
+
+        optimizer.zero_grad(set_to_none=True)
 
         
         if method != "Random":
@@ -124,17 +127,25 @@ class PruningOptimization(Optimization):
             ignored_layers=ignored_layers,
         )
 
+        del example_inputs
+        gc.collect()
+        
         # Execute Pruning
         logger.info(f"Pruning model with structural pruning... Target Sparsity: {amount}. Doing the pruning in {steps} steps...")
 
         for i in range(steps):
             pruner.step() 
-
             #Fine Tuning
+
             trainEpoch(model_to_prune, fine_tune_loader, criterion, optimizer, pruned_model_info["device"])
 
+            optimizer.zero_grad(set_to_none=True)
             
-        
+        del pruner
+        del optimizer
+        del criterion
+        gc.collect()
+
         # Check the result
         logger.debug(f"Model physically shrunk. New structure applied.")
 
@@ -270,7 +281,7 @@ class QuantizationOptimization(Optimization):
         
         logger.debug(f"<----- [OPTIMIZATION MODULE] APPLY QUANTIZATION OPTIMIZATION")
 
-        return (quantized_aimodel, False)
+        return quantized_aimodel, True
 
     def __staticQuantizationOnnx(self, model_name, device, inputs, bit_method, config_id):
         """

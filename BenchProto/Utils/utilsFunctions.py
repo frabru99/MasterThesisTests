@@ -193,11 +193,22 @@ def initialPrint(topic: str) -> None:
 
 def trainEpoch(model, loader, criterion, optimizer, device):
     model.train()
+
+    #Freezing parameters, unfreezing classifier.
+    for param in model.parameters():
+            param.requires_grad = False
+
+    # This finds the last linear layer we just added and unfreezes it.
+    for name, module in model.named_modules():
+        if isinstance(module, nn.Linear):
+            for param in module.parameters():
+                param.requires_grad = True
+
     running_loss = 0.0
     for inputs, labels in tqdm(loader):
         inputs, labels = inputs.to(device), labels.to(device)
         optimizer.zero_grad()
-        nn.functional.dropout(inputs, p=0.5, training=True)
+        #nn.functional.dropout(inputs, p=0.5, training=True)
         loss = criterion(model(inputs), labels)
         loss.backward()
         optimizer.step()

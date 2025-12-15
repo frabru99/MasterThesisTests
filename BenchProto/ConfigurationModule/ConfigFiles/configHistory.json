@@ -224,5 +224,71 @@
             "data_dir": "./ModelData/Dataset/dataset_name",
             "batch_size": 32
         }
+    },
+    "eff6e4e4f9bf50f2433e32ac92938a6fdbf256617ce757fab573821a": {
+        "models": [
+            {
+                "module": "torchvision.models",
+                "model_name": "mobilenet_v2",
+                "native": false,
+                "weights_path": "ModelData/Weights/mobilenet_v2_best.pth",
+                "device": "cpu",
+                "class_name": "mobilenet_v2",
+                "weights_class": "MobileNet_V2_Weights.DEFAULT",
+                "image_size": 224,
+                "num_classes": 2,
+                "task": "classification",
+                "description": "Mobilenet V2 from torchvision"
+            },
+            {
+                "module": "torchvision.models",
+                "model_name": "efficientnet",
+                "native": false,
+                "weights_path": "./ModelData/Weights/efficientnet_b0_best.pth",
+                "device": "cpu",
+                "class_name": "efficientnet_b0",
+                "weights_class": "EfficientNet_B0_Weights.DEFAULT",
+                "image_size": 224,
+                "num_classes": 2,
+                "task": "classification",
+                "description": "EfficientNet from torchvision"
+            },
+            {
+                "module": "torchvision.models",
+                "model_name": "mnasnet1_0",
+                "native": false,
+                "weights_path": "ModelData/Weights/mnasnet1_0_best.pth",
+                "device": "cpu",
+                "class_name": "mnasnet1_0",
+                "weights_class": "MNASNet1_0_Weights.DEFAULT",
+                "image_size": 224,
+                "num_classes": 2,
+                "task": "classification",
+                "description": "mnasnet_v2 from torchvision"
+            }
+        ],
+        "optimizations": {
+            "Quantization": {
+                "method": "QInt8"
+            },
+            "Pruning": {
+                "method": "LnStructured",
+                "amount": 0.15,
+                "n": 1
+            },
+            "Distillation": {
+                "method": true,
+                "distilled_paths": {
+                    "mobilenet_v2": "/home/frabru99/Sync/MasterThesisTests/BenchProto/ModelData/Weights/mobilenet_v2_distilled.pth",
+                    "efficientnet": "/home/frabru99/Sync/MasterThesisTests/BenchProto/ModelData/Weights/efficientnet_b0_distilled.pth",
+                    "mnasnet1_0": "/home/frabru99/Sync/MasterThesisTests/BenchProto/ModelData/Weights/mnasnet1_0_distilled.pth"
+                }
+            }
+        },
+        "dataset": {
+            "data_dir": "ModelData/Dataset/casting_data",
+            "batch_size": 32
+        },
+        "repetitions": 2
     }
 }
