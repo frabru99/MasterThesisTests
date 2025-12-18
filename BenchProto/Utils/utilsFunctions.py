@@ -10,13 +10,15 @@ from json import dump
 from difflib import SequenceMatcher
 from pathlib import Path
 from subprocess import run, DEVNULL
-from json import dump
+from json import dump, load, JSONDecodeError
 from tqdm import tqdm
 import torch.nn as nn
-
+import questionary
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 clean_caches_script_bash = "./" / PROJECT_ROOT / "Utils/scripts/cleancache.sh"
+supported_devices_lib_path = PROJECT_ROOT / "ConfigurationModule/ConfigFiles/supported_devices_library.json"
+
 
 
 def compareModelArchitecture(model1: object, model2: object) -> None:
@@ -189,9 +191,16 @@ def initialPrint(topic: str) -> None:
     """
 
     print("\n\t\t"+ '\x1b[35m' + topic + '\033[0m')
+    
 
+def trainEpoch(model: object, loader: object, criterion: object, optimizer: object, device: object):
+    """
+    Function useful for re-training after pruning optimization. 
 
-def trainEpoch(model, loader, criterion, optimizer, device):
+    Input:
+        - model
+
+    """
     model.train()
 
     #Freezing parameters, unfreezing classifier.
@@ -224,6 +233,40 @@ def checkModelExistence(aimodel: object, config_id: str)-> bool:
 
     if onnx_model_path.exists():
         logger.info(f"ONNX file of {model_name} already exists at {onnx_model_path}")
-        return True#TO PASS THE CREATION IF IT ALREADY EXISTS 
+        return True #TO PASS THE CREATION IF IT ALREADY EXISTS 
 
     return False
+
+def pickAPlatform() -> (str, int):
+    title = "Choose the target device: "
+
+    try:
+        with open(supported_devices_lib_path, "r") as supported_device_lib_file:
+            supported_device = load(supported_device_lib_file)
+
+
+        option = questionary.select(title, choices=supported_device["devices"], pointer='>>',  use_indicator=True).ask()
+
+        if option is None:
+            logger.critical(f"None option encountered, exiting...")
+            exit(1)
+
+        return option
+
+    except JSONDecodeError as e:
+        logger.critical(f"Encountered a problem loading the supported devices library file.\nThe specific problem is {e}")
+
+    except Exception as e:
+        logger.critical(f"Encountered a generic proble loading the supported devices library file.\nThe specific problem is: {e}")
+
+
+    exit(1)
+
+def acceleratorWarning() -> None:
+    """
+    Shows a warning for platforms fournished with an accelerator. 
+
+    """
+    
+    logger.warning(f"\nThe target platform is fournished with accelerator. All the models will be quantized. 'Quantization' optimization field is not allowed.\n")
+    input("\nPress a key to continue...")

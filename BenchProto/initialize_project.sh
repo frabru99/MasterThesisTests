@@ -1,7 +1,20 @@
 #!/bin/bash
 
+echo -e "[FILE INTIALIZATION...]\n"
+tr -d '\n' < ./ConfigurationModule/ConfigFiles/supported_devices_library.json | \
+sed 's/.*\[\(.*\)\].*/\1/' | \
+tr ',' '\n' | \
+sed 's/[" ]//g' | \
+awk 'BEGIN {print "{"} {printf "%s  \"%s\": false", (NR>1?",\n":""), $1} END {print "\n}"}' \
+> ./PackageDownloadModule/requirementsFileDirectory/.installed.json
+
+echo -e "File .installed.json setted...\n"
+
+
 echo -e "[BASE DEPENDENCIES INSTALLATION...]\n"
 
+
+rm -rf venv || true; python3.10 -m venv venv
 source venv/bin/activate
 python3.10 -m pip install -r requirements.txt
 chmod +x ./Utils/scripts/cleancache.sh

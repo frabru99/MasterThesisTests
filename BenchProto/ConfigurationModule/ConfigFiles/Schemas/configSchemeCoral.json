@@ -71,14 +71,6 @@
         "description": "A collection of optimization pparameters.",
         "type": "object",
         "properties": {
-            "Quantization": {
-                "description": "Quantization level object", 
-                "type": "object",
-                "required": ["method"],
-                "properties": {
-                    "method": {"type": "string"}
-                }
-            }, 
             "Pruning": {
                 "description": "Pruning level object", 
                 "type": "object",
@@ -122,9 +114,9 @@
                 }
             }
         },
+        "additionalProperties": false,
         "maxItems": 1
     },
-
     "dataset": {
         "description": "The path to the dataset",
         "type": "object",
@@ -143,12 +135,20 @@
         "maxItems": 1
 
     },
-
     "repetitions":{
         "description": "Repetition for each couple (Model, Optimization) in the DoE.",
         "type": "integer",
         "exclusiveMinimum": 1
-    }   
+    },
+
+    "platform": {
+        "description": "Hardware Platform used for the experiments (e.g., Fusion 884 AI, Google Coral etc.)",
+        "type": "string"
+    },
+    "arch": {
+        "description": "Architecture Type, where the framework is executed.",
+        "type": "string"
+    }
 },
 
 "required": ["models", "optimizations", "dataset", "repetitions"],

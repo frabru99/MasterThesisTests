@@ -41,9 +41,6 @@
         }
     ],
     "optimizations": {
-        "Quantization": {
-            "method": "QInt8"
-        },
         "Pruning": {
             "method": "LnStructured",
             "amount": 0.15,
@@ -62,5 +59,7 @@
         "data_dir": "ModelData/Dataset/casting_data",
         "batch_size": 32
     },
-    "repetitions": 2
+    "repetitions": 2,
+    "platform": "generic",
+    "arch": "x86_64"
 }

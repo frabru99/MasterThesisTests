@@ -1,4 +1,5 @@
 {
-    "needed": true,
-    "gpu": true
+    "generic": false,
+    "coral": false,
+    "fusion": true
 }

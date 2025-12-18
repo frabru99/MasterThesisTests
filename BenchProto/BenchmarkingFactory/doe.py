@@ -31,7 +31,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 from Utils.utilsFunctions import cleanCaches
 
 #For Example Purposes
-from ProbeHardwareModule.probeHardwareManager import ProbeHardwareManager
+#from ProbeHardwareModule.probeHardwareManager import ProbeHardwareManager
 from PackageDownloadModule.packageDownloadManager import PackageDownloadManager
 
 
@@ -568,9 +568,12 @@ if __name__ == "__main__":
 
 
 
-    probe = ProbeHardwareManager()
-    
-    there_is_gpu, gpu_type, sys_arch = probe.checkSystem()
+    #probe = ProbeHardwareManager()
+    #probe.checkSystem()
+
+    there_is_gpu = False 
+    gpu_type = ""
+    sys_arch = "x86"  
 
     
     pdm = PackageDownloadManager()

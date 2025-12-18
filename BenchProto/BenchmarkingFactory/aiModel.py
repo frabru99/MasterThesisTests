@@ -12,7 +12,6 @@ import numpy as np
 from numpy import float32
 from os import remove, mkdir, getpid
 from importlib import import_module
-from psutil import Process
 from pathlib import Path
 from torchvision import models
 from BenchmarkingFactory.dataWrapper import DataWrapper
@@ -308,7 +307,6 @@ class AIModel():
         provider_list = self._getProviderList(self.getInfo('device'))
         device_name = "cuda" if device_str == "gpu" else "cpu"
 
-        process = Process(getpid())
 
         try:
             # Enable profiling
@@ -319,11 +317,9 @@ class AIModel():
             sess_options.profile_file_prefix = self.getInfo('model_name')
             logger.debug(f"Session is enabled with profiling")
             
-            memory_before_session = process.memory_info().rss
 
             ort_session = ort.InferenceSession(str(onnx_model_path), providers=provider_list, sess_options = sess_options)
 
-            memory_after_session = process.memory_info().rss
 
             input_name = ort_session.get_inputs()[0].name
             output_name = ort_session.get_outputs()[0].name
@@ -413,12 +409,9 @@ class AIModel():
                     io_binding.bind_output(output_name, device_type = 'cpu',
                                             device_id=0)
 
-                    #Arena + Weights
-                    memory_before = process.memory_info().rss
 
                     ort_session.run_with_iobinding(io_binding)
 
-                    memory_after = process.memory_info().rss
 
                     if memory_after - memory_before > 0:
                         max_memory_arena_allocated += memory_after - memory_before 

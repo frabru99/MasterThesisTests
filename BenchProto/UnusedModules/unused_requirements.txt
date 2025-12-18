@@ -1,0 +1,4 @@
+#psutil==7.0.0
+#GPUtil==1.4.0
+#pyamdgpuinfo==2.1.7
+#onnxruntime-gpu (for GPU purposes)

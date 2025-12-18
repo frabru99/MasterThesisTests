@@ -12,58 +12,35 @@ from sys import executable
 from importlib.metadata import distributions
 from time import sleep
 from Utils.utilsFunctions import initialPrint
+from abc import ABC, abstractmethod
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-requirements_file_needed_path = str(PROJECT_ROOT / "PackageDownloadModule" / "requirementsFileDirectory" / "needed.txt" )
-requirements_file_gpu_path = str(PROJECT_ROOT / "PackageDownloadModule" / "requirementsFileDirectory" / "gpu.txt" )
+requirements_file_generic_path = str(PROJECT_ROOT / "PackageDownloadModule" / "requirementsFileDirectory" / "generic.txt" )
+requirements_file_coral_path = str(PROJECT_ROOT / "PackageDownloadModule" / "requirementsFileDirectory" / "coral.txt")
+requirements_file_fusion_path = str(PROJECT_ROOT / "PackageDownloadModule" / "requirementsFileDirectory" / "fusion.txt")
+
+#add other paths here?..
+
+#requirements_file_gpu_path = str(PROJECT_ROOT / "PackageDownloadModule" / "requirementsFileDirectory" / "gpu.txt" )
 requirements_installed_path= str(PROJECT_ROOT / "PackageDownloadModule" / "requirementsFileDirectory" / ".installed.json" )
 
 
-class PackageDownloadManager:
 
-    def __init__(self):
+class PackageDownloadManager(ABC):
+
+    
+    @abstractmethod
+    def _checkAlreadyInstalled(self) -> (bool, bool):
+        pass
+    
+    @abstractmethod
+    def _downloadDependencies(self, device: str, installed_requirements_dict: dict):
         pass
 
 
-    def __checkAlreadyInstalled(self, there_is_gpu: bool) -> (bool, bool):
-
+    def checkDownloadedDependencies(self) -> None:
         """
-        Checks if dependecies are already installed, inspectionating the .installed.json file. 
-
-        Input:
-            - there_is_gpu: bool
-        
-        Output:
-            - install_needed: bool
-            - install_gpu: bool
-
-        """
-
-        requirementInstalled = {}
-        try:
-            with open(requirements_installed_path, "r") as installed_requirements:
-                requirementInstalled = load(installed_requirements)
-
-            install_needed = not requirementInstalled.get("needed", False)
-            install_gpu = there_is_gpu and not requirementInstalled.get("gpu", False)
-
-            return install_needed, install_gpu
-            
-        except decoder.JSONDecodeError as e:
-            logger.error(f"Encountered an error decoding the JSON file at path {requirements_installed_path}. It shouldn't be empty!\nThe specific error is: {e}")
-            logger.info(f"Installing only basic dependencies...")
-            return True, False
-
-        except (FileNotFoundError,Exception) as e:
-            logger.critical(f"Encountered a generic error checking the already installed dependencies.\nThe specific error is: {e}")
-        
-        exit(0)
-
-
-    def checkDownloadedDependencies(self, there_is_gpu: bool) -> None:
-
-        """
-        Checks if dependecies are already installed calling __checkingAlreadyInstalled. After, it installs the required dependencies.
+        Checks if dependecies are already installed calling _checkingAlreadyInstalled. After, it installs the required dependencies.
 
 
         Input:
@@ -72,6 +49,7 @@ class PackageDownloadManager:
             - None
         
         """
+
         initialPrint("DEPENDENCIES DOWNLOAD\n")
         installed_requirements_dict={}
 
@@ -80,30 +58,18 @@ class PackageDownloadManager:
                 installed_requirements_dict = load(installed_requirements_file)
 
 
-            installNeeded, installGpu = self.__checkAlreadyInstalled(there_is_gpu)
+            installed, _ = self._checkAlreadyInstalled()
             
-            if installNeeded:
-                logger.info(f"INSTALLING NEEDED DEPENDENCIES...")
-                sleep(1)
-                check_call([executable, '-m', 'pip', 'install', '-r', requirements_file_needed_path, '--force-reinstall'])
-                installed_requirements_dict["needed"] = True
+            if not installed:
+                self._downloadDependencies(self._platform, installed_requirements_dict)
             else:
                 logger.info(f"NEEDED DEPENDENCIES ALREADY PRESENT...")
 
-
-            if installGpu:
-                logger.info(f"INSTALLING GPU DEPENDENCIES...")
-                sleep(1)
-                check_call([executable, '-m', 'pip', 'install', '-r', requirements_file_gpu_path, '--force-reinstall'])
-                installed_requirements_dict["gpu"] = True
-            else:
-                logger.info(f"GPU DEPENDENCIES ALREADY PRESENT OR NOT NEEDED...")
-
-            if installed_requirements_dict and (installNeeded or installGpu):
+            if installed_requirements_dict and not installed:
                 with open(requirements_installed_path, "w") as installed_requirements_file:
                     dump(installed_requirements_dict, installed_requirements_file, indent=4)
                 
-            logger.info("ALL DEPENDENCIES INSTALLED! IF THERE ARE PROBLEMS, MAKE A FORCE-REINSTALL OF THE DEPENDENCIES WITHOUT CACHING.")
+            logger.info("ALL DEPENDENCIES INSTALLED! IF THERE ARE PROBLEMS, MAKE A FORCE-REINSTALL OF THE DEPENDENCIES WITHOUT PIP CACHING.")
 
 
         except decoder.JSONDecodeError as e:
@@ -116,10 +82,155 @@ class PackageDownloadManager:
         
 
 
-# if __name__ == "__main__":
-#     there_is_gpu = True
+class PackageDownloadManagerGeneric(PackageDownloadManager):
 
-#     pdm = PackageDownloadManager()
 
-#     pdm.checkDownloadedDependencies(there_is_gpu)
+        def __init__(self):
+            self._platform = "generic"
+
+        def _checkAlreadyInstalled(self) -> (bool, bool):
+            """
+                Checks if dependecies are already installed, inspectionating the .installed.json file. 
+
+                Input:
+                    - there_is_gpu: bool
+                
+                Output:
+                    - install_needed: bool
+                    - install_gpu: bool
+
+            """
+
+            requirementInstalled = {}
+            try:
+                with open(requirements_installed_path, "r") as installed_requirements:
+                    requirementInstalled = load(installed_requirements)
+
+                installed = requirementInstalled.get(self._platform, False)
+
+                return installed, False
+
+            except decoder.JSONDecodeError as e:
+                logger.error(f"Encountered an error decoding the JSON file at path {requirements_installed_path}. It shouldn't be empty!\nThe specific error is: {e}")
+                logger.info(f"Installing only basic dependencies...")
+                return True, False
+
+            except (FileNotFoundError,Exception) as e:
+                logger.critical(f"Encountered a generic error checking the already installed dependencies.\nThe specific error is: {e}")
+            
+            exit(0)
+
+
+
+        def _downloadDependencies(self, device: str, installed_requirements_dict: dict):
+
+            logger.info(f"INSTALLING {device.upper()} DEPENDENCIES...")
+            sleep(1)
+            check_call([executable, '-m', 'pip', 'install', '-r', requirements_file_generic_path])
+            installed_requirements_dict[device] = True
+
+
+class PackageDownloadManagerCoral(PackageDownloadManager):
+
+
+        def __init__(self):
+            self._platform = "coral"
+
+        def _checkAlreadyInstalled(self) -> (bool, bool):
+            """
+                Checks if dependecies are already installed, inspectionating the .installed.json file. 
+
+                Input:
+                    - there_is_gpu: bool
+                
+                Output:
+                    - install_needed: bool
+                    - install_gpu: bool
+
+            """
+
+            requirementInstalled = {}
+            try:
+                with open(requirements_installed_path, "r") as installed_requirements:
+                    requirementInstalled = load(installed_requirements)
+
+                installed = requirementInstalled.get(self._platform, False)
+
+                return installed, False
+
+            except decoder.JSONDecodeError as e:
+                logger.error(f"Encountered an error decoding the JSON file at path {requirements_installed_path}. It shouldn't be empty!\nThe specific error is: {e}")
+                logger.info(f"Installing only basic dependencies...")
+                return True, False
+
+            except (FileNotFoundError,Exception) as e:
+                logger.critical(f"Encountered a generic error checking the already installed dependencies.\nThe specific error is: {e}")
+            
+            exit(0)
+
+
+        def _downloadDependencies(self, device: str, installed_requirements_dict: dict):
+
+            logger.info(f"INSTALLING {device.upper()} DEPENDENCIES...")
+            sleep(1)
+            check_call([executable, '-m', 'pip', 'install', '-r', requirements_file_coral_path])
+            installed_requirements_dict[device] = True
+
+
+class PackageDownloadManagerFusion(PackageDownloadManager):
+
+
+        def __init__(self):
+            self._platform = "fusion"
+
+        def _checkAlreadyInstalled(self) -> (bool, bool):
+            """
+                Checks if dependecies are already installed, inspectionating the .installed.json file. 
+
+                Input:
+                    - there_is_gpu: bool
+                
+                Output:
+                    - install_needed: bool
+                    - install_gpu: bool
+
+            """
+
+            requirementInstalled = {}
+            try:
+                with open(requirements_installed_path, "r") as installed_requirements:
+                    requirementInstalled = load(installed_requirements)
+
+                installed = requirementInstalled.get(self._platform, False)
+
+                return installed, False
+
+            except decoder.JSONDecodeError as e:
+                logger.error(f"Encountered an error decoding the JSON file at path {requirements_installed_path}. It shouldn't be empty!\nThe specific error is: {e}")
+                logger.info(f"Installing only basic dependencies...")
+                return True, False
+
+            except (FileNotFoundError,Exception) as e:
+                logger.critical(f"Encountered a generic error checking the already installed dependencies.\nThe specific error is: {e}")
+            
+            exit(0)
+
+
+        def _downloadDependencies(self, device: str, installed_requirements_dict: dict):
+
+            logger.info(f"INSTALLING {device.upper()} DEPENDENCIES...")
+            sleep(1)
+            check_call([executable, '-m', 'pip', 'install', '-r', requirements_file_fusion_path])
+            installed_requirements_dict[device] = True
+
+
+
+
+
+if __name__ == "__main__":
+    there_is_gpu = False
+
+    pdm = PackageDownloadManagerFusion()
+
+    pdm.checkDownloadedDependencies(there_is_gpu)
     
