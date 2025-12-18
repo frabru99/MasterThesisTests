@@ -24,6 +24,10 @@ import statsmodels.api as sm
 from statsmodels.graphics.factorplots import interaction_plot
 from multiprocessing import Process, SimpleQueue, set_start_method, get_context 
 from Utils.utilsFunctions import cleanCaches, initialPrint, subRunQueue
+<<<<<<< HEAD
+=======
+from PlatformContext.platform_context import PlatformContext
+>>>>>>> salvr-branch
 from rich.pretty import pprint
 
 
@@ -70,6 +74,7 @@ class DoE():
             self.created=True #After that the first object is initialized, we'll not initialize another one. 
             self.__initialized=False
             self.__ran=False
+            self.__context = PlatformContext(config['platform'])
             self.__config_id = config_id
             self.__repetitions = config["repetitions"] # Must be added to the general config
             self.__model_info=config["models"]
@@ -299,7 +304,7 @@ class DoE():
         ctx = get_context("spawn")
         queue = ctx.Queue()
 
-        sub_process_args = (aimodel, inference_loader, self.__config_id, queue)
+        sub_process_args = (self.__context, aimodel, inference_loader, self.__config_id, queue)
         sub_process = ctx.Process(target=subRunQueue, args=sub_process_args)
         sub_process.start()
 
@@ -311,6 +316,7 @@ class DoE():
     
             if result_packet['status'] == "success":
                 stats = result_packet['data']
+                logger.debug(stats)
             else:
                 logger.error(f"Worker reported error: {result_packet.get('message')}")
 
@@ -549,9 +555,15 @@ if __name__ == "__main__":
                 "method": "QInt8"            
                 }, 
             "Pruning": {
+<<<<<<< HEAD
                 "method": "LnStructured", 
                 "amount": 0.15,
                 "n": 1
+=======
+                "method": "LnStructured",
+                'n': 1, 
+                "amount": 0.1
+>>>>>>> salvr-branch
             },
             "Distillation":{
                 "method": True,
@@ -560,9 +572,10 @@ if __name__ == "__main__":
         },
         "dataset": {
             "data_dir": "ModelData/Dataset/casting_data",
-            "batch_size": 32
+            "batch_size": 1
         },
-        "repetitions": 2
+        "repetitions": 2,
+        "platform": "generic"
     }
 
 
@@ -597,6 +610,7 @@ if __name__ == "__main__":
     doe = DoE(config, config_id)
 
     doe.initializeDoE()
+<<<<<<< HEAD
 
 
     
@@ -605,6 +619,10 @@ if __name__ == "__main__":
 
     
     doe.runAnova()
+=======
+    #doe.runDesign()
+    #doe.runAnova()
+>>>>>>> salvr-branch
 
     #doe.getString()
 

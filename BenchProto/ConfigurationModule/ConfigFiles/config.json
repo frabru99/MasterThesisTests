@@ -49,15 +49,15 @@
         "Distillation": {
             "method": true,
             "distilled_paths": {
-                "mobilenet_v2": "/home/frabru99/Sync/MasterThesisTests/BenchProto/ModelData/Weights/mobilenet_v2_distilled.pth",
-                "efficientnet": "/home/frabru99/Sync/MasterThesisTests/BenchProto/ModelData/Weights/efficientnet_b0_distilled.pth",
-                "mnasnet1_0": "/home/frabru99/Sync/MasterThesisTests/BenchProto/ModelData/Weights/mnasnet1_0_distilled.pth"
+                "mobilenet_v2": "/home/salvatore/Desktop/MasterThesis/MasterThesisTests/BenchProto/ModelData/Weights/mobilenet_v2_distilled.pth",
+                "efficientnet": "/home/salvatore/Desktop/MasterThesis/MasterThesisTests/BenchProto/ModelData/Weights/efficientnet_b0_distilled.pth",
+                "mnasnet1_0": "/home/salvatore/Desktop/MasterThesis/MasterThesisTests/BenchProto/ModelData/Weights/mnasnet1_0_distilled.pth"
             }
         }
     },
     "dataset": {
         "data_dir": "ModelData/Dataset/casting_data",
-        "batch_size": 32
+        "batch_size": 1
     },
     "repetitions": 2,
     "platform": "generic",

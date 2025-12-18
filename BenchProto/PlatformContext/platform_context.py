@@ -25,7 +25,7 @@ class PlatformContext():
                 
                 self.__configurationManager = ConfigManagerGeneric(self.__platform)
                 self.__packageDownloadManager = PackageDownloadManagerGeneric()
-                # self.__runnerModule = RunnerModuleGeneric()
+                self.__runnerModule = RunnerModuleGeneric()
                 # self.__statsModule = StatsModuleGeneric()
 
             case "coral":

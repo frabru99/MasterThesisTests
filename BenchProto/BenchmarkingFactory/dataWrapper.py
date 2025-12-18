@@ -70,7 +70,8 @@ class DataWrapper():
             self.inference_loader = DataLoader(
                 inference_dataset, 
                 batch_size=dataset_info['batch_size'],
-                shuffle=False
+                shuffle=False,
+                drop_last=True
             )
 
 
