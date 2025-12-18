@@ -15,6 +15,7 @@ from psutil import Process
 from pathlib import Path
 from torchvision import models
 from BenchmarkingFactory.dataWrapper import DataWrapper
+from PlatformContext.platform_context import PlatformContext
 from Utils.utilsFunctions import getHumanReadableValue
 from Utils.calculateStats import CalculateStats
 from tqdm import tqdm
@@ -256,18 +257,20 @@ class AIModel():
         try:
             inputs, _ = next(iter(input_data))
 
-            dummy_input = inputs[0:1].to(device)
-            logger.debug("Generated dummy input from real dataset (sliced to batch size 1)")
+            dummy_input = inputs.to(device)
+
+            current_batch_size = dummy_input.shape[0]
+            logger.debug(f"Generated dummy input from real dataset (sliced to batch size {current_batch_size})")
 
         except (StopIteration, TypeError, AttributeError):
             logger.warning("Could not fetch data from loader. Generating random dummy input.")
-            dummy_input = torch.randn(1, 3, image_size, image_size).to(device)
+            dummy_input = torch.randn(32, 3, image_size, image_size).to(device)
 
         # Dynamic axes config (Standard exporter)
-        dynamic_axes_config = {
-            'input': {0: 'batch_size'},
-            'output': {0: 'batch_size'}
-        }
+        # dynamic_axes_config = {
+        #     'input': {0: 'batch_size'},
+        #     'output': {0: 'batch_size'}
+        # }
 
         try:
             torch.onnx.export(
@@ -279,7 +282,7 @@ class AIModel():
                 do_constant_folding = False,
                 input_names = ['input'],
                 output_names = ['output'],
-                dynamic_axes = dynamic_axes_config,
+                #dynamic_axes = dynamic_axes_config,
                 dynamo = False
             )
             logger.info(f"ONNX Model successfully created at {onnx_model_path}")
@@ -468,6 +471,8 @@ if __name__ == "__main__":
 
     logger.debug("----------------- AI MODULE TEST: This is a DEBUG log --------------------")
 
+    context = PlatformContext('generic')
+
     model_weights_path = PROJECT_ROOT / "ModelData" / "Weights"
     efficient_path = str(model_weights_path / "casting_efficientnet_b0.pth")
 
@@ -478,7 +483,7 @@ if __name__ == "__main__":
         'model_name': "efficientnet_v2",
         'native': True,
         'weights_path': efficient_path,
-        'device': "cpu",
+        'device': 'cpu',
         'class_name': 'efficientnet_b0',
         'weights_class': 'EfficientNet_B0_Weights.DEFAULT',
         'image_size': 224,
@@ -492,7 +497,7 @@ if __name__ == "__main__":
         'model_name': "mobilenet_v2",
         'native': True,
         'weights_path': mobile_path,
-        'device': "cpu",
+        'device': 'cpu',
         'class_name': 'mobilenet_v2',
         'weights_class': 'MobileNet_V2_Weights.DEFAULT',
         'image_size': 224,
@@ -507,7 +512,7 @@ if __name__ == "__main__":
         'model_name': "mnasnet1_0",
         'native': True,
         'weights_path': mnas_path,
-        'device': "cpu",
+        'device': 'cpu',
         'class_name': 'mnasnet1_0',
         'weights_class': 'MNASNet1_0_Weights.DEFAULT',
         'image_size': 224,
@@ -535,18 +540,22 @@ if __name__ == "__main__":
     dataset.loadInferenceData(model_info = efficient_info, dataset_info = dataset_info)
     inference_loader = dataset.getLoader()
     efficientnet.createOnnxModel(inference_loader, config_id)
-    efficient_stats = efficientnet.runInference(inference_loader, config_id)
+    #efficient_stats = efficientnet.runInference(inference_loader, config_id)
+    efficient_stats = context.run(aimodel=efficientnet, input_data=inference_loader, config_id = config_id)
 
     # Second Inference test: with mobilenet
     dataset.loadInferenceData(model_info = mobile_info, dataset_info = dataset_info)
     inference_loader = dataset.getLoader()
     mobilenet.createOnnxModel(inference_loader, config_id)
-    mobile_stats = mobilenet.runInference(inference_loader, config_id)
+    #mobile_stats = mobilenet.runInference(inference_loader, config_id)
+    mobile_stats = context.run(aimodel=mobilenet, input_data=inference_loader, config_id=config_id)
+
 
     # Third Inference test: with mnasnet
     dataset.loadInferenceData(model_info = mnas_info, dataset_info = dataset_info)
     inference_loader = dataset.getLoader()
     mnasnet.createOnnxModel(inference_loader, config_id)
-    mnas_stats = mnasnet.runInference(inference_loader, config_id)
+    mnas_stats = context.run(aimodel=mnasnet, input_data=inference_loader, config_id=config_id)
+    #mnas_stats = mnasnet.runInference(inference_loader, config_id)
 
     logger.debug("------------- AI MODULE TEST END -------------------")

@@ -149,7 +149,12 @@
         "description": "Repetition for each couple (Model, Optimization) in the DoE.",
         "type": "integer",
         "exclusiveMinimum": 1
-    }   
+    },
+    
+    "platform": {
+        "description": "Hardware Platform used for the experiments (e.g., Fusion 884 AI, Google Coral etc.)",
+        "type": "string"
+    }
 },
 
 "required": ["models", "optimizations", "dataset", "repetitions"],

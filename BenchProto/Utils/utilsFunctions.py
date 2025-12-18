@@ -128,43 +128,12 @@ def cleanCaches() -> None:
         logger.error(f"Encountered a generic problem cleaning the caches. The next measurements could be not independent.\nThe error is: {e}")
 
 
-def subRun(aimodel: object, inference_loader: object, config_id: str, output_file_path: str) -> None:
-    """
-    Entry point for a subprocess in order to execute runInference. After this, the aiModel and inference_loader are deleted
-    and the garbage collector called in an explicit way. 
-
-    Input:
-        - aimodel: aiModel object
-        - inference_loader: inference_loader object, given from DataWrapper
-        - config_id: the configuration id, needed to retrieve the model ifrom the right directory
-        - output_file_path: string for the output file path
-
-    Output:
-        - None
-    """
-    
-    try:
-        logger.info("STARTING INFERENCE...")
-        stats = aimodel.runInference(inference_loader, config_id)
-
-        del aimodel
-        del inference_loader
-        gc.collect()
-        
-        with open(output_file_path, 'w') as f:
-            dump(stats, f, indent=4)
-                
-        logger.info(f"WORKER: Stats successfully written to {output_file_path}")
-
-    except Exception as e:
-        logger.error(f"SubProcess CRASHED: {e}")
-
-def subRunQueue(aimodel, inference_loader, config_id, queue):
+def subRunQueue(context, aimodel, inference_loader, config_id, queue):
     """
     Worker function to run in the subprocess.
     """
     try:  
-        stats = aimodel.runInference(inference_loader, config_id)
+        stats = context.run(aimodel=aimodel, input_data=inference_loader, config_id=config_id)
 
         queue.put({"status": "success", "data": stats})
 

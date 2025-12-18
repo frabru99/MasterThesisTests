@@ -7,19 +7,24 @@ logger = getLogger(__name__)
 import os
 import torch
 import json
+import math
 import gc
 import traceback
+import pingouin as pingu
 from pathlib import Path
 import pandas as pd
 import numpy as np
 from pandas import DataFrame
+from copy import deepcopy
+from scipy import stats
 from statsmodels.formula.api import ols
 from itertools import product
 import matplotlib.pyplot as plt
 import statsmodels.api as sm
 from statsmodels.graphics.factorplots import interaction_plot
-from multiprocessing import Process, SimpleQueue, set_start_method, get_context #trying this one
-from Utils.utilsFunctions import subRun, cleanCaches, initialPrint, subRunQueue
+from multiprocessing import Process, SimpleQueue, set_start_method, get_context 
+from Utils.utilsFunctions import cleanCaches, initialPrint, subRunQueue
+from PlatformContext.platform_context import PlatformContext
 from rich.pretty import pprint
 
 
@@ -66,6 +71,7 @@ class DoE():
             self.created=True #After that the first object is initialized, we'll not initialize another one. 
             self.__initialized=False
             self.__ran=False
+            self.__context = PlatformContext(config['platform'])
             self.__config_id = config_id
             self.__repetitions = config["repetitions"] # Must be added to the general config
             self.__model_info=config["models"]
@@ -230,59 +236,63 @@ class DoE():
 
         #self.__models.extend(optimized_models)
         self.__initialized=True
+    
 
-    def __runSingleBenchmark(self, aimodel, inference_loader, temp_dir):
+    def __checkResidualNormality(self, residuals) -> bool:
         """
-        Run a single Benchmark for a given model and a given loader
-        the function writes to a temp with a subprocess, due to cache cleaning
-
-        Input: 
-            - aimodel: aiModel class passed from the design
-            - inference_loader: Inference_loader used to execute inferences
-            - temp_dir: path where to save temporarily
-
-        Output:
-            - stats: inference stats retrieved from temporary file
+        Check Residual Normality for Anova test
         """
 
-        # Temp path creation
-        temp_file_path = temp_dir / f"temp_run.json"
+        logger.debug(f"Here there are our residuals:\n {residuals}")
+        shapiro_stat, shapiro_p  = stats.shapiro(residuals)
 
-        # Clean up if it exists from a previous crash
-        if temp_file_path.exists():
-            os.remove(temp_file_path)
+        logger.debug(f"The results of Shapiro Test-> Shapiro Stats: {shapiro_stat:.4f} | P Value: {shapiro_p:.4f}")
 
-        #Create the subProcess to execute in a separated memory space
-        #In order to clean caches between executions
-        sub_process_args = (aimodel, inference_loader, self.__config_id, temp_file_path)
-        sub_process_run = Process(target = subRun, args=sub_process_args)
-
-        sub_process_run.start()
-        sub_process_run.join()
-
-        if sub_process_run.is_alive():
-            logger.warning(f"Pay attention the subprocess didn't terminate. Forced Termination")
-            sub_process_run.terminate()
-        
-        del sub_process_run
-        gc.collect()
-
-        # Retrieving data
-        if temp_file_path.exists():
-            try:
-                with open(temp_file_path, 'r') as f:
-                    stats = json.load(f)
-                
-                # Delete the temp file now that we have the data
-                os.remove(temp_file_path)
-
-                return stats
-
-            except json.JSONDecodeError:
-                logger.error("Failed to decode JSON from worker output.")
-                return None
+        if shapiro_p < 0.05:
+            return False # Reject Null hypothesis (H0: They are from a normal distribution), so not normal
         else:
-            logger.error("Worker finished but NO output file was found. (Process likely crashed silently)")
+            return True # Residual are from a Normal distribution
+
+    def __checkResidualHomoschedasticity(self, df, residuals, normal: bool):
+        """
+        Check Residual Homoschedasticity for Anova test
+        """
+
+        df['residuals'] = residuals
+        groups = [group['residuals'].values for name, group in df.groupby(['Model', 'Optimization'])]
+
+        test_string = "Bartlett" if normal else "Levene"
+
+        if normal:
+            stat, p_value = stats.bartlett(*groups)
+        else:
+            stat, p_value = stats.levene(*groups)
+
+        logger.debug(f"These are the results of {test_string}-> Stat: {stat:.4f} | P Value: {p_value:.4f}")  
+
+        if p_value < 0.05:
+            return False
+        else:
+            return True    
+
+    def __runOneWayAnalysisPerFactor(self, df, factor, dv='Total_Inference_Time_ms', test_type='Welch'):
+        """
+        Perms a One-Way analysis on a single factor, ignoring others.
+        Automatically select between Standard ANOVA, Welch, or Kruskal-Wallis.
+        """
+        
+        formula = f'{dv} ~ C({factor})'
+        model = ols(formula, data=df).fit()
+        residuals = model.resid
+
+        stats_table = None
+        if test_type == 'Welch':
+            stats_table = pingu.welch_anova(data=df, dv=dv, between=factor)
+        elif test_type == 'Kruskal':
+            stats_table = pingu.kruskal(data=df, dv=dv, between=factor)
+
+        return stats_table
+
 
     def __runProcessBenchmark(self, aimodel, inference_loader):
 
@@ -290,7 +300,7 @@ class DoE():
         ctx = get_context("spawn")
         queue = ctx.Queue()
 
-        sub_process_args = (aimodel, inference_loader, self.__config_id, queue)
+        sub_process_args = (self.__context, aimodel, inference_loader, self.__config_id, queue)
         sub_process = ctx.Process(target=subRunQueue, args=sub_process_args)
         sub_process.start()
 
@@ -302,6 +312,7 @@ class DoE():
     
             if result_packet['status'] == "success":
                 stats = result_packet['data']
+                logger.debug(stats)
             else:
                 logger.error(f"Worker reported error: {result_packet.get('message')}")
 
@@ -366,6 +377,12 @@ class DoE():
                 })
             else:
                 logger.error(f"During single inference something went wrong!")
+                logger.error(f"Fake data will be passed for this inference [Infinite Value]")
+                results_list.append({
+                    "Model": mod_name,
+                    "Optimization": opt_name,
+                    "Total_Inference_Time_ms": float('inf')
+                })
                 
 
         self.__ran=True
@@ -395,14 +412,43 @@ class DoE():
         logger.debug(f"Headers of created data [ANOVA TABLE]:")
         logger.debug(df.head())
 
-        
+        logger.info(f"Printing Head of measurements")
         pprint(df.head())
 
-        
+        # Creating Combination Column
+        df['Combination'] = df['Model'].astype(str) + "_" + df['Optimization'].astype(str)
+
         formula = 'Total_Inference_Time_ms ~ C(Model) + C(Optimization) + C(Model):C(Optimization)'
 
         model = ols(formula, data=df).fit()
-        anova_table = sm.stats.anova_lm(model, typ=2)
+
+        ### Check Anova Assumptions ###
+
+        # Normality and Homoschedasticity of Residuals
+        #is_normal = self.__checkResidualNormality(model.resid)
+        #is_homo = self.__checkResidualHomoschedasticity(deepcopy(df), model.resid, True)
+
+        is_normal = True
+        is_homo = True
+
+        anova_table=None
+        if is_normal and is_homo:
+            # F-test
+            anova_table = sm.stats.anova_lm(model, typ=2)
+        elif is_normal and not is_homo:
+            # Welch
+            optimization_table = self.__runOneWayAnalysisPerFactor(df, 'Optimization', dv='Total_Inference_Time_ms', test_type='Welch')
+            model_table = self.__runOneWayAnalysisPerFactor(df, 'Model', dv='Total_Inference_Time_ms', test_type='Welch')
+            an_table = pingu.welch_anova(data=df, dv='Total_Inference_Time_ms', between= 'Combination')
+
+            anova_table = pd.concat([optimization_table, model_table, an_table], ignore_index=True)
+        elif not is_normal:
+            # Kruskal wallis
+            optimization_table = self.__runOneWayAnalysisPerFactor(df, 'Optimization', dv='Total_Inference_Time_ms', test_type='Kruskal')
+            model_table = self.__runOneWayAnalysisPerFactor(df, 'Model', dv='Total_Inference_Time_ms', test_type='Kruskal')
+            an_table = pingu.kruskal(data=df, dv='Total_Inference_Time_ms', between='Combination')
+
+            anova_table = pd.concat([optimization_table, model_table, an_table], ignore_index=True)
 
 
         num_models = len(self.__models.keys())
@@ -417,6 +463,24 @@ class DoE():
         initialPrint("RESULTS\n")
         pprint(anova_table)
 
+        possible_p_cols = ['p-unc', 'PR(>F)', 'p', 'p-corr']
+        p_col = next((col for col in possible_p_cols if col in anova_table.columns), None)
+
+        if p_col is None:
+            logger.error(f"Error: No p-value column found in this table")
+            exit(0)
+
+        print("\n")
+        for index, row in anova_table.iterrows():
+
+            factor_name = row['Source'] if 'Source' in row else index
+            p_val = row[p_col]
+
+            if math.isnan(p_val):
+                continue
+
+            sig_label = f"SIGNIFICANT" if p_val < 0.05 else f"NOT SIGNIFICANT"
+            logger.info(f"{str(factor_name):<25} {p_val:.6e}    {sig_label}")
 
         plt.figure(figsize=(10, 6))
         interaction_plot(x=df['Optimization'], 
@@ -433,6 +497,7 @@ class DoE():
         
         plt.savefig(str(PROJECT_ROOT / "Plots" / "interaction_plot.png"))
         logger.info("PLOT SAVED AS interaction_plot.png")
+
 
         
 
@@ -478,8 +543,9 @@ if __name__ == "__main__":
                 "type": "static"
             }, 
             "Pruning": {
-                "method": "Random", 
-                "amount": 0.3
+                "method": "LnStructured",
+                'n': 1, 
+                "amount": 0.1
             },
             "Distillation":{
                 "method": True,
@@ -488,9 +554,10 @@ if __name__ == "__main__":
         },
         "dataset": {
             "data_dir": "ModelData/Dataset/casting_data",
-            "batch_size": 32
+            "batch_size": 1
         },
-        "repetitions": 2
+        "repetitions": 2,
+        "platform": "generic"
     }
 
     probe = ProbeHardwareManager()
@@ -516,8 +583,8 @@ if __name__ == "__main__":
     doe = DoE(config, config_id)
 
     doe.initializeDoE()
-    doe.runDesign()
-    doe.runAnova()
+    #doe.runDesign()
+    #doe.runAnova()
 
     #doe.getString()
 

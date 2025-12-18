@@ -19,6 +19,7 @@ from onnxruntime.tools.symbolic_shape_infer import SymbolicShapeInference
 from BenchmarkingFactory.calibrationDataReader import CustomCalibrationDataReader
 from BenchmarkingFactory.dataWrapper import DataWrapper
 from BenchmarkingFactory.aiModel import AIModel
+from PlatformContext.platform_context import PlatformContext
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -283,14 +284,22 @@ class QuantizationOptimization(Optimization):
             model_output=model_quantized_path,
             calibration_data_reader=qdr,
             quant_format = q_format,
-            per_channel=False,
+            per_channel=True,
             weight_type = quantization.QuantType.QInt8,
             activation_type= quantization.QuantType.QUInt8,
             extra_options=q_static_opts
         )
 
+        final_model = onnx.load(model_quantized_path)
+        if not final_model.graph.value_info:
+            logger.error(f"No intermediate shape info found!!!")
+        else:
+            logger.debug(f"Found {len(final_model.graph.value_info)} nodes with shape info.")
+            logger.debug(final_model.graph.value_info[0])
+
         logger.info("Quantization Complete")
 
+        del final_model
         del qdr
         gc.collect()
 
@@ -388,6 +397,8 @@ if __name__ == "__main__":
 
     # -------- TEST WITH BASE MODEL ---------------
 
+    context = PlatformContext('generic')
+
     efficient_path = str(model_weights_path / "casting_efficientnet_b0.pth")
     config_id = "TEST_CONFIG_ID"
 
@@ -447,7 +458,7 @@ if __name__ == "__main__":
 
     # Inference with unpruned model
     efficientnet.createOnnxModel(inference_loader, config_id)
-    efficientnet.runInference(inference_loader, config_id)
+    efficient_stats = context.run(aimodel=efficientnet, input_data=inference_loader, config_id=config_id)
 
     # Base model for mobilenet
     mobilenet = AIModel(mobile_info)
@@ -455,7 +466,7 @@ if __name__ == "__main__":
     mobilenet_dataset.loadInferenceData(model_info = mobile_info, dataset_info = dataset_info)
     mobilenet_loader = mobilenet_dataset.getLoader()
     mobilenet.createOnnxModel(mobilenet_loader, config_id)
-    mobilenet.runInference(mobilenet_loader, config_id)
+    mobilenet_stats = context.run(aimodel=mobilenet, input_data=mobilenet_loader, config_id=config_id)
 
     # Base model for mnasnet
     mnasnet = AIModel(mnas_info)
@@ -463,7 +474,7 @@ if __name__ == "__main__":
     mnasnet_dataset.loadInferenceData(model_info = mnas_info, dataset_info = dataset_info)
     mnasnet_loader = mnasnet_dataset.getLoader()
     mnasnet.createOnnxModel(mnasnet_loader, config_id)
-    mnasnet.runInference(mnasnet_loader, config_id)
+    mnas_stats = context.run(aimodel=mnasnet, input_data=mnasnet_loader, config_id=config_id)
 
 
     # # -----------------------------------------------
@@ -492,20 +503,20 @@ if __name__ == "__main__":
 
     # Inference with prunde model
     pruned_efficientnet.createOnnxModel(inference_loader, config_id)
-    pruned_efficientnet.runInference(inference_loader, config_id)
+    context.run(aimodel=pruned_efficientnet, input_data=inference_loader, config_id=config_id)
 
     pruned_mobilenet.createOnnxModel(mobilenet_loader, config_id)
-    pruned_mobilenet.runInference(mobilenet_loader, config_id)
+    context.run(aimodel=pruned_mobilenet, input_data=mobilenet_loader, config_id=config_id)
 
     pruned_mnasnet.createOnnxModel(mnasnet_loader, config_id)
-    pruned_mnasnet.runInference(mnasnet_loader, config_id)
+    context.run(aimodel=pruned_mnasnet, input_data=mnasnet_loader, config_id=config_id)
 
     # # -----------------------------------------------
 
     # # ---------- TEST WITH QUANTIZED MODEL ---------------
 
     # quantization_info = {
-    #     "arch": "x86", #aarch
+    #     "arch": "x86", #arch
     #     "method": "QInt8",
     #     "type": "static"
     # }
@@ -546,7 +557,7 @@ if __name__ == "__main__":
     distilled_efficientnet = distillation_optimizator.applyOptimization()  
 
     distilled_efficientnet.createOnnxModel(inference_loader, config_id)
-    distilled_efficientnet.runInference(inference_loader, config_id)
+    context.run(aimodel=distilled_efficientnet, input_data=inference_loader, config_id=config_id)
 
     # -----------------------------------------------
 
