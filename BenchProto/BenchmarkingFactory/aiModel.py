@@ -8,16 +8,18 @@ logger = getLogger(__name__)
 import torch
 import torch.nn as nn
 import onnxruntime as ort
+import numpy as np
 from numpy import float32
 from os import remove, mkdir, getpid
 from importlib import import_module
-from psutil import Process
 from pathlib import Path
 from torchvision import models
 from BenchmarkingFactory.dataWrapper import DataWrapper
 from Utils.utilsFunctions import getHumanReadableValue
 from Utils.calculateStats import CalculateStats
 from tqdm import tqdm
+from rich.pretty import pprint
+from sklearn.metrics import confusion_matrix
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
@@ -239,9 +241,6 @@ class AIModel():
             mkdir(onnx_directory_path)
 
         
-        if onnx_model_path.exists():
-            logger.info(f"ONNX file of {model_name} already exists at {onnx_model_path}")
-            #return TO PASS THE CREATION IF IT ALREADY EXISTS 
 
         # Getting parameters
         onnx_model_path = str(onnx_model_path)
@@ -308,10 +307,6 @@ class AIModel():
         provider_list = self._getProviderList(self.getInfo('device'))
         device_name = "cuda" if device_str == "gpu" else "cpu"
 
-        process = Process(getpid())
-
-
-
 
         try:
             # Enable profiling
@@ -322,11 +317,9 @@ class AIModel():
             sess_options.profile_file_prefix = self.getInfo('model_name')
             logger.debug(f"Session is enabled with profiling")
             
-            memory_before_session = process.memory_info().rss
 
             ort_session = ort.InferenceSession(str(onnx_model_path), providers=provider_list, sess_options = sess_options)
 
-            memory_after_session = process.memory_info().rss
 
             input_name = ort_session.get_inputs()[0].name
             output_name = ort_session.get_outputs()[0].name
@@ -356,7 +349,9 @@ class AIModel():
 
         max_memory_arena_allocated = 0
 
-
+        #FOR CONFUSION MATRIX
+        all_preds=[]
+        all_labels=[]
     
         with torch.no_grad():
             for inputs, labels in tqdm(input_data):
@@ -414,12 +409,9 @@ class AIModel():
                     io_binding.bind_output(output_name, device_type = 'cpu',
                                             device_id=0)
 
-                    #Arena + Weights
-                    memory_before = process.memory_info().rss
 
                     ort_session.run_with_iobinding(io_binding)
 
-                    memory_after = process.memory_info().rss
 
                     if memory_after - memory_before > 0:
                         max_memory_arena_allocated += memory_after - memory_before 
@@ -428,6 +420,11 @@ class AIModel():
                     onnx_outputs_ort = io_binding.get_outputs()
                     numpy_output = onnx_outputs_ort[0].numpy()
                     onnx_outputs_tensor = torch.from_numpy(numpy_output)
+
+                    all_labels.extend(labels.cpu().numpy())
+
+                    preds=np.argmax(numpy_output, axis=1)
+                    all_preds.extend(preds)
 
                 # Cleaning binding for next iteration
                 io_binding.clear_binding_inputs()
@@ -454,8 +451,11 @@ class AIModel():
         #logger.info(f"MEMORY ALLOCATED FOR THE SESSION: {getHumanReadableValue(memory_after_session-memory_before_session)}")
         #logger.info(f"TOTAL MEMORY ALLOCATED THROUGH RUN (WEIGHTS + ARENA): {getHumanReadableValue(max_memory_arena_allocated)}")
         stats = CalculateStats.calculateStats(profile_file_path, num_batches, n_total_images, correct, total, running_loss)
-
+        cmat=confusion_matrix(all_labels, all_preds)
         
+        logger.info("Confusion matrix")
+        pprint(cmat)
+
         CalculateStats.printStats(stats, f" {model_name.upper()} STATS ")            
 
         logger.debug(f"<----- [AIMODEL MODULE] RUN INFERENCE\n")

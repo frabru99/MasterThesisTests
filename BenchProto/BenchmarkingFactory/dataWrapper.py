@@ -18,7 +18,7 @@ class DataWrapper():
         Initializes the DataWrapper.
         Data is not loaded until loadInferenceData() is called.
         """
-
+        self.fine_tuning_loader= None
         self.inference_loader = None
         self.current_data_config = None
 
@@ -39,7 +39,7 @@ class DataWrapper():
         else:
             weights = getattr(weights_class, parts[1])
 
-        image_size = model_info['image_size']
+        #image_size = model_info['image_size']
 
         return transforms.Compose([
             weights.transforms()
@@ -73,6 +73,19 @@ class DataWrapper():
                 shuffle=False
             )
 
+
+            train_dataset = datasets.ImageFolder(
+                str(data_path / "train"),
+                data_transforms
+            )
+
+            self.fine_tuning_loader = DataLoader(
+                train_dataset, 
+                batch_size=dataset_info['batch_size'],
+                shuffle=False
+            )
+
+
             self.current_data_config['class_names'] = inference_dataset.classes
             logger.info(f"Data loaded and setted on {model_info['model_name']}. Classes found: {self.getDatasetInfo('class_names')}")
 
@@ -91,8 +104,21 @@ class DataWrapper():
         Returns the currently loaded inference dataloader
         """
         if self.inference_loader is None:
-            logger.warning("Data has not been loaded... check the loading process")
+            logger.critical("Data has not been loaded... check the loading process")
+            exit(0)
         return self.inference_loader
+
+
+    def getFineTuningLoader(self):
+        """
+        Returns the currently loaded inference dataloader
+        """
+        if self.fine_tuning_loader is None:
+            logger.critical("Data has not been loaded... check the loading process")
+            exit(0)
+        return self.fine_tuning_loader
+
+
 
     def getDatasetInfo(self, info: str):
         """

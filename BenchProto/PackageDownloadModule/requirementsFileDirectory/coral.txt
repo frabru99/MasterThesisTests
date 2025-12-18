@@ -1,0 +1,7 @@
+mendel-development-tool==1.5.2
+tensorflow==2.15.0
+onnx2tf==1.22.3
+
+#to install on board
+#tensorflow==2.15.0
+

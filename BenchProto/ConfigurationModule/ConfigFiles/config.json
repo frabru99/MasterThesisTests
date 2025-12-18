@@ -4,7 +4,7 @@
             "module": "torchvision.models",
             "model_name": "mobilenet_v2",
             "native": false,
-            "weights_path": "ModelData/Weights/mobilenet_v2.pth",
+            "weights_path": "ModelData/Weights/mobilenet_v2_best.pth",
             "device": "cpu",
             "class_name": "mobilenet_v2",
             "weights_class": "MobileNet_V2_Weights.DEFAULT",
@@ -16,8 +16,8 @@
         {
             "module": "torchvision.models",
             "model_name": "efficientnet",
-            "native": true,
-            "weights_path": "./ModelData/Weights/casting_efficientnet_b0.pth",
+            "native": false,
+            "weights_path": "./ModelData/Weights/efficientnet_b0_best.pth",
             "device": "cpu",
             "class_name": "efficientnet_b0",
             "weights_class": "EfficientNet_B0_Weights.DEFAULT",
@@ -30,7 +30,7 @@
             "module": "torchvision.models",
             "model_name": "mnasnet1_0",
             "native": false,
-            "weights_path": "ModelData/Weights/mnasnet1_0.pth",
+            "weights_path": "ModelData/Weights/mnasnet1_0_best.pth",
             "device": "cpu",
             "class_name": "mnasnet1_0",
             "weights_class": "MNASNet1_0_Weights.DEFAULT",
@@ -41,13 +41,10 @@
         }
     ],
     "optimizations": {
-        "Quantization": {
-            "method": "QInt8",
-            "type": "static"
-        },
         "Pruning": {
-            "method": "Random",
-            "amount": 0.3
+            "method": "LnStructured",
+            "amount": 0.15,
+            "n": 1
         },
         "Distillation": {
             "method": true,
@@ -62,5 +59,7 @@
         "data_dir": "ModelData/Dataset/casting_data",
         "batch_size": 32
     },
-    "repetitions": 2
+    "repetitions": 2,
+    "platform": "generic",
+    "arch": "x86_64"
 }

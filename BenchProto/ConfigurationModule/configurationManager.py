@@ -12,13 +12,16 @@ from os import listdir
 from pathlib import Path
 from numpy import delete
 from pathlib import Path
-from hashlib import sha224
+from hashlib import sha512
+from platform import uname
+from abc import ABC, abstractmethod
 from Utils.utilsFunctions import getLongestSubString, getFilenameList, initialPrint
+
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 config_path=str(PROJECT_ROOT / "ConfigurationModule" / "ConfigFiles" / "config.json") #config file path
-config_schema_path=str(PROJECT_ROOT / "ConfigurationModule" / "ConfigFiles" / "configScheme.json") #configSchema file path
+config_schemas_path=str(PROJECT_ROOT / "ConfigurationModule" / "ConfigFiles" / "Schemas") #configSchema file path
 config_history_path=str(PROJECT_ROOT / "ConfigurationModule" / "ConfigFiles" / "configHistory.json") #configHistory file path
 models_library_path= str(PROJECT_ROOT / "ConfigurationModule" / "ConfigFiles" / "models_library.json") #models_library file path
 optimizations_library_path = str(PROJECT_ROOT / "ConfigurationModule" / "ConfigFiles" / "optimizations_library.json") #optimizations_library file path
@@ -28,41 +31,35 @@ OPTIMIZATIONS_NEED_ARCH = {"Quantization"} #Optimizations that needs the arch ty
 OPTIMIZATION_NEED_N = {"LnStructured"} #Optimizations methods that needs the 'n' parameter
 
 error_dataset_path_message =""" 
-├── ModelData/
-│   └── Dataset/
-│       └── dataset_name/
-│           └── test/
-│               ├── class1/
-│               │   └── image1...
-│               └── class2/
-│                   └── image1...
-
+ModelData/Dataset/
+└── casting_data
+    ├── test
+    │   ├── def_front
+    │   └── ok_front
+    └── train
+        ├── def_front
+        └── ok_front
 """
 
-class ConfigManager:
+class ConfigManager(ABC):
 
-    def __init__(self, arch, there_is_gpu, schema_path=config_schema_path):
+    def __init__(self, platform: str):
         """
-        Creates the ConfigManger object, loading the JSON Schema which the configuration have
-        to be complaiant with.
+        Creates the ConfigManger oject. 
 
         Input:
             - arch: architecture type given from ProbeHardwareModule
-            - there_is_gpu: bool
-            - schema_path: path to the JSON config schema
-        
+            - there_is_gpu: bool        
         """
         try:
-            with open(schema_path, "r") as config_schema_file:
-                self.__schema = load(config_schema_file)
-            self.__arch = arch
-            self.__there_is_gpu = there_is_gpu
+            self._platform= platform
+            self._arch = uname().machine
         except (FileNotFoundError, Exception) as e:
-            logger.error(f"Encountered a problem loading the config schema file.\nThe specific error is: {e}.")
+            logger.error(f"Encountered a generic problem initializatin the ConfigManager.\nThe specific error is: {e}.")
 
 
 
-    def __printConfigFile(self, input: any, topic: str) -> None:
+    def _printConfigFile(self, input: any, topic: str) -> None:
         """
         Prints the input with pprint with a specified topic.
 
@@ -78,7 +75,7 @@ class ConfigManager:
 
 
     
-    def __checkModels(self, models: list) -> bool:
+    def _checkModels(self, models: list) -> bool:
         """
         Checks the availability of models wrote in config file and applies the needed changes.
 
@@ -128,24 +125,23 @@ class ConfigManager:
                         logger.error(f"There are no weights file for {model['model_name']}. Try to provide it in ./ModelData/Weights/ dir or check the weights path in config files.\n")
                         return False
 
-                if models[idx]['device'] == "gpu" and not self.__there_is_gpu:
-                    logger.warning(f"THE GPU IS NOT PRESENT, CHANGING THE DEVICE TO 'CPU' for {model['model_name']}...")
-                    models[idx]['device'] = "cpu"
+                # if models[idx]['device'] == "gpu" and not self._there_is_gpu:
+                #     logger.warning(f"THE GPU IS NOT PRESENT, CHANGING THE DEVICE TO 'CPU' for {model['model_name']}...")
+                #     models[idx]['device'] = "cpu"
 
             if changed:
 
                 models = delete(models, idx_to_del).tolist() #Deleting the "native" models not present in models_library
                 if len(models)==0:
-                    logger.critical("NO MODEL PRESENT IN THE CONFIGURATION. EXITING....")
+                    logger.critical("NO MODEL PRESENT IN THE CONFIGURATION. EXITING...")
                     return False
 
                 logger.info(f"SHOWING NEW MODELS CONFIGURATION...")
-                self.__printConfigFile(models, " MODELS SECTION ")
+                self._printConfigFile(models, " MODELS SECTION ")
 
             else:
                 logger.info(f"CONFIGURATION NOT CHANGED...")
-                self.__printConfigFile(models, " MODELS SECTION ")
-
+                self._printConfigFile(models, " MODELS SECTION ")
 
 
         except (Exception) as e:
@@ -154,8 +150,8 @@ class ConfigManager:
         return True
 
 
-
-    def __checkOptimizations(self, optimizations: dict, model_dicts: list) -> bool:
+    @abstractmethod
+    def _checkOptimizations(self, optimizations: dict, model_dicts: list) -> bool:
         """
         Checks the availability of optimization methods wrote in config file. 
 
@@ -165,65 +161,10 @@ class ConfigManager:
         Output:
             - result: bool
         """
-
-        logger.info("CHECKING OPTIMIZATION METHODS...")
-
-        try:
-            optimizations_library = None
-            opt_to_remove=[]
-
-            try:
-                with open(optimizations_library_path, "r") as optimizations_library_file:
-                    optimizations_library = load(optimizations_library_file)
-            except (FileNotFoundError, Exception) as e:
-                logger.error(f"The library file was not found or not loaded in the correct way.\nThe specific error is {e}.")
-                return False
-
-            #make a set of value in order to improve the performance in searching.
-            optimizations_library_sets = {
-                key: set(value) for key, value in optimizations_library.items()
-            }
-
-            for optimization_name in optimizations.keys():
-
-                if optimization_name not in optimizations_library_sets:
-                    logger.info(f"THE OPTIMIZATION {optimization_name} IS NOT AVAILABLE. REMOVING IT FROM CONFIG FILE...")
-                    opt_to_remove.append(optimization_name)
-                    continue
-
-                elif optimizations[optimization_name]["method"] not in optimizations_library_sets[optimization_name]:
-                    logger.error(f"THE OPTIMIZATION {optimization_name} - {optimizations[optimization_name]['method']} DOESN'T EXISTS. REMOVING IT FROM CONFIG FILE...")
-                    opt_to_remove.append(optimization_name)
-                    continue
-
-                else:
-                    logger.info(f"OPTIMIZATION {optimization_name} - {optimizations[optimization_name]['method']} RECOGNISED!")
-
-                if "n" in optimizations[optimization_name] and optimizations[optimization_name]["method"] not in OPTIMIZATION_NEED_N:
-                    optimizations[optimization_name].pop("n")
-
-            if len(opt_to_remove) > 0:
-                for name in opt_to_remove:
-                    optimizations.pop(name, None)
-                    
-
-            if len(optimizations) == 0:
-                logger.critical("NO OPTIMIZATIONS PRESENT IN THE CONFIGURATION.")
-                return False
-
-            if "Distillation" in optimizations.keys():
-                if optimizations['Distillation']['method']:
-                    self.__createDistilledPaths(optimizations, model_dicts)
-            
-            self.__printConfigFile(optimizations, " OPTIMIZATIONS SECTION ")
-
-        except (Exception) as e:
-            logger.error(f"Encountered a generic problem in optimization check.\nThe specific error is: {e}")
-
-        return True
+        pass
 
 
-    def __checkDataset(self, dataset_dict: dict) -> bool:
+    def _checkDataset(self, dataset_dict: dict) -> bool:
         """
         Checks if the dataset path specified contains at least one file. The validity of the dataset will be checked later. 
 
@@ -238,16 +179,16 @@ class ConfigManager:
         logger.info(f"CHECKING DATASET PATH...")
         if exists(dataset_path) and len(listdir(dataset_path))>1:
             logger.info(f"DATASET PATH RECOGNISED!")
-            self.__printConfigFile(dataset_dict, " DATASET SECTION ")
+            self._printConfigFile(dataset_dict, " DATASET SECTION ")
             return True
         
-        logger.error(f"Dataset path not recognised! You should have this path configuration (with at least two classes):")
+        logger.error(f"Dataset path not recognised! You should have a similar path configuration(with at least two classes):")
         print(error_dataset_path_message)
 
         return False
 
     
-    def __updateConfigHistory(self, config: dict, hash_value: str) -> None:
+    def _updateConfigHistory(self, config: dict, hash_value: str) -> None:
 
         """
         This function asks to the user if the loaded/created configurations has to be added to the historyConfig.json file. 
@@ -297,7 +238,7 @@ class ConfigManager:
         print("\n")
 
 
-    def __addArchType(self, config: dict) -> None:
+    def _addArchType(self, config: dict) -> None:
 
         """
         Adds the architecture type ('x86' or 'aarch') to the config file. 
@@ -308,53 +249,26 @@ class ConfigManager:
             - None
         """
 
-        for optimization in OPTIMIZATIONS_NEED_ARCH:
-                if optimization in config["optimizations"]:
-                    config["optimizations"][optimization]["arch"] = self.__arch
+
+        config["arch"] = self._arch
 
 
-    def __createDistilledPaths(self, optimizations: dict, model_dicts: list) -> None:
+    def _addPlatform(self, config: dict) -> None:
         """
-        Creates the configuration file from a constructed dict created by the interactive CLI session.
+        Adds the choosen platform ('x86' or 'aarch') to the config file. 
 
-        Input: 
-            - config: the config dict generated from interactive session
-
+        Input:
+            - config: the config dict
         Output:
-            - hash_value: returns the hash_value of the config for id purposes
-        
+            - None
         """
 
-        # It's an useless check, but we'll never know!
-        initialPrint("CONFIGURATION FILE CHECKING\n")
+        config["platform"] = self._platform
 
-        try:
-            logger.info("VALIDATING CREATED CONFIGURATON...")
-            validate(instance=config, schema=self.__schema)
-        except (ValidationError, Exception) as e:
-            logger.critical(f"Encountered a problem validating the config file. Check if the fields provided are correct.\nThe specific error is: {e}.\n")
-            exit(0)
 
-        logger.info("CONFIGURATION FILE CORRECTLY VALIDATED! \n")
 
-        if self.__checkModels(config["models"]) and self.__checkDataset(config["dataset"]) and self.__checkOptimizations(config["optimizations"], config['models']):
-            logger.info("DONE!")
-            self.__printConfigFile(config, " FINAL CONFIGURATION FILE ")
-            logger.info(f"SAVING IT INTO {config_path}...")
 
-            with open(config_path, "w") as config_file:
-                dump(config, config_file, indent=4)
-
-            logger.info(f"SAVED!")
-
-            hash_value = sha224(str(config).encode("utf-8")).hexdigest()
-            self.__updateConfigHistory(config, hash_value)
-            self.__addArchType(config)
-            return hash_value
-        else:
-            logger.info(f"EXITING...\n")
-
-    def __createDistilledPaths(self, optimizations: dict, model_dicts):
+    def _createDistilledPaths(self, optimizations: dict, model_dicts):
         """
         Create the distilled paths for loading the distilled version of chosen models
 
@@ -418,27 +332,31 @@ class ConfigManager:
 
         
             logger.info("VALIDATING LOADED CONFIGURATION...")
-            validate(instance=config, schema=self.__schema)
+            validate(instance=config, schema=self._schema)
 
         except (ValidationError, Exception) as e:
             logger.critical(f"Encountered a problem validating the config file. Check if the fields provided are correct.\nThe specific error is: {e}.\n")
             exit(0)
     
         logger.info("CONFIGURATION FILE CORRECTLY VALIDATED! \n")
-        self.__printConfigFile(config, " INITIAL CONF. FILE ")
+        self._printConfigFile(config, " INITIAL CONF. FILE ")
 
         logger.info("CHECKING THE MODELS...")
         
-        if self.__checkModels(config["models"]) and self.__checkDataset(config["dataset"]) and self.__checkOptimizations(config["optimizations"], config["models"]):
+        if self._checkModels(config["models"]) and self._checkDataset(config["dataset"]) and self._checkOptimizations(config["optimizations"], config["models"]):
             logger.info("DONE!")
-            self.__printConfigFile(config, " FINAL CONF. FILE ")
-            hash_value = sha224(str(config).encode("utf-8")).hexdigest()
-            self.__updateConfigHistory(config, hash_value)
+            self._addPlatform(config)
+            self._addArchType(config)
+
+            self._printConfigFile(config, " FINAL CONF. FILE ")
+            hash_value = str(sha512(str(config).encode("utf-8")).hexdigest()) + "_" + self._platform
+            self._updateConfigHistory(config, hash_value)
             #Arch for Quantization Optimization
-            self.__addArchType(config)
+            self._addArchType(config)
             return config, hash_value
         else:
-            logger.info(f"EXITING...\n")
+            logger.critical(f"Something went wrong in the configuration check. Exiting...\n")
+            exit(1)
 
     
     def createConfigFile(self, config: dict) -> str:
@@ -458,16 +376,19 @@ class ConfigManager:
         try:
             # It's an useless check, but we'll never know!
             logger.info("VALIDATING CREATED CONFIGURATON...")
-            validate(instance=config, schema=self.__schema)
+            validate(instance=config, schema=self._schema)
         except (ValidationError, Exception) as e:
             logger.critical(f"Encountered a problem validating the config file. Check if the fields provided are correct.\nThe specific error is: {e}.\n")
             exit(0)
 
         logger.info("CONFIGURATION FILE CORRECTLY VALIDATED! \n")
 
-        if self.__checkModels(config["models"]) and self.__checkDataset(config["dataset"]) and self.__checkOptimizations(config["optimizations"], config['models']):
+        if self._checkModels(config["models"]) and self._checkDataset(config["dataset"]) and self._checkOptimizations(config["optimizations"], config['models']):
             logger.info("DONE!")
-            self.__printConfigFile(config, " FINAL CONFIGURATION FILE ")
+            self._addPlatform(config)
+            self._addArchType(config)
+
+            self._printConfigFile(config, " FINAL CONFIGURATION FILE ")
             logger.info(f"SAVING IT INTO {config_path}...")
 
             with open(config_path, "w") as config_file:
@@ -475,16 +396,167 @@ class ConfigManager:
 
             logger.info(f"SAVED!")
 
-            hash_value = sha224(str(config).encode("utf-8")).hexdigest()
-            self.__updateConfigHistory(config, hash_value)
-            self.__addArchType(config)
+            
+            hash_value = str(sha512(str(config).encode("utf-8")).hexdigest())[:10] + "_" + self._platform
+            self._updateConfigHistory(config, hash_value)
             return hash_value
         else:
-            logger.info(f"EXITING...\n")
+            logger.critical(f"Something went wrong in the configuration check. Exiting...\n")
+            exit(1)
 
    
 
+
+class ConfigManagerGeneric(ConfigManager):
+
+    def __init__(self, platform: str):
+        super().__init__(platform)
+        schema_path = Path(config_schemas_path) / "configSchemeGeneric.json"
+        with open(schema_path, "r") as config_schema_file:
+            self._schema = load(config_schema_file)
+
+
+    def _checkOptimizations(self, optimizations: dict, model_dicts: list):
+        logger.info(f"CHECKING OPTIMIZATION METHODS FOR {self._platform} PLATFORM...")
+
+        try:
+            optimizations_library = None
+            opt_to_remove=[]
+
+            try:
+                with open(optimizations_library_path, "r") as optimizations_library_file:
+                    optimizations_library = load(optimizations_library_file)
+            except (FileNotFoundError, Exception) as e:
+                logger.error(f"The library file was not found or not loaded in the correct way.\nThe specific error is {e}.")
+                return False
+
+            #make a set of value in order to improve the performance in searching.
+            optimizations_library_sets = {
+                key: set(value) for key, value in optimizations_library.items()
+            }
+
+            for optimization_name in optimizations.keys():
+
+                if optimization_name not in optimizations_library_sets:
+                    logger.info(f"THE OPTIMIZATION {optimization_name} IS NOT AVAILABLE. REMOVING IT FROM CONFIG FILE...")
+                    opt_to_remove.append(optimization_name)
+                    continue
+
+                elif optimizations[optimization_name]["method"] not in optimizations_library_sets[optimization_name]:
+                    logger.error(f"THE OPTIMIZATION {optimization_name} - {optimizations[optimization_name]['method']} DOESN'T EXISTS. REMOVING IT FROM CONFIG FILE...")
+                    opt_to_remove.append(optimization_name)
+                    continue
+
+                else:
+                    logger.info(f"OPTIMIZATION {optimization_name} - {optimizations[optimization_name]['method']} RECOGNISED!")
+
+                if "n" in optimizations[optimization_name] and optimizations[optimization_name]["method"] not in OPTIMIZATION_NEED_N:
+                    optimizations[optimization_name].pop("n")
+
+            if len(opt_to_remove) > 0:
+                for name in opt_to_remove:
+                    optimizations.pop(name, None)
+                    
+
+            if len(optimizations) == 0:
+                logger.critical("NO OPTIMIZATIONS PRESENT IN THE CONFIGURATION.")
+                return False
+
+            if "Distillation" in optimizations.keys():
+                if optimizations['Distillation']['method']:
+                    self._createDistilledPaths(optimizations, model_dicts)
+            
+            self._printConfigFile(optimizations, " OPTIMIZATIONS SECTION ")
+
+        except (Exception) as e:
+            logger.error(f"Encountered a generic problem in optimization check.\nThe specific error is: {e}")
+
+        return True
+
+
+
+class ConfigManagerCoral(ConfigManager):
+
+    def __init__(self, platform):
+        super().__init__(platform)
+        schema_path = Path(config_schemas_path) / "configSchemeCoral.json"
+        with open(schema_path, "r") as config_schema_file:
+            self._schema = load(config_schema_file)
+
+
+    def _checkOptimizations(self, optimizations: dict, model_dicts: list) -> bool:
+        logger.info(f"CHECKING OPTIMIZATION METHODS FOR {self._platform} PLATFORM...")
+
+        try:
+            optimizations_library = None
+            opt_to_remove=[]
+
+            try:
+                with open(optimizations_library_path, "r") as optimizations_library_file:
+                    optimizations_library = load(optimizations_library_file)
+            except (FileNotFoundError, Exception) as e:
+                logger.error(f"The library file was not found or not loaded in the correct way.\nThe specific error is {e}.")
+                return False
+
+            optimizations_library_sets = {}
+            #make a set of value in order to improve the performance in searching.
+            for key, value in optimizations_library.items():
+                if key != "Quantization":
+                    optimizations_library_sets[key] = value
+
+
+            for optimization_name in optimizations.keys():
+
+                if optimization_name not in optimizations_library_sets:
+                    logger.info(f"THE OPTIMIZATION {optimization_name} IS NOT AVAILABLE. REMOVING IT FROM CONFIG FILE...")
+                    opt_to_remove.append(optimization_name)
+                    continue
+
+                elif optimizations[optimization_name]["method"] not in optimizations_library_sets[optimization_name]:
+                    logger.error(f"THE OPTIMIZATION {optimization_name} - {optimizations[optimization_name]['method']} DOESN'T EXISTS. REMOVING IT FROM CONFIG FILE...")
+                    opt_to_remove.append(optimization_name)
+                    continue
+
+                else:
+                    logger.info(f"OPTIMIZATION {optimization_name} - {optimizations[optimization_name]['method']} RECOGNISED!")
+
+                if "n" in optimizations[optimization_name] and optimizations[optimization_name]["method"] not in OPTIMIZATION_NEED_N:
+                    optimizations[optimization_name].pop("n")
+
+            if len(opt_to_remove) > 0:
+                for name in opt_to_remove:
+                    optimizations.pop(name, None)
+                    
+
+            if len(optimizations) == 0:
+                logger.critical("NO OPTIMIZATIONS PRESENT IN THE CONFIGURATION.")
+                return False
+
+            if "Distillation" in optimizations.keys():
+                if optimizations['Distillation']['method']:
+                    self._createDistilledPaths(optimizations, model_dicts)
+            
+            self._printConfigFile(optimizations, " OPTIMIZATIONS SECTION ")
+
+        except (Exception) as e:
+            logger.error(f"Encountered a generic problem in optimization check.\nThe specific error is: {e}")
+
+        return True
+
     
+
+class ConfigManagerFusion(ConfigManager):
+
+    def __init__(self, platform):
+        super().__init__(platform)
+        schema_path = Path(config_schemas_path) / "configSchemeFusion.json"
+        with open(schema_path, "r") as config_schema_file:
+            self._schema = load(config_schema_file)
+
+
+    def _checkOptimizations(self, optimizations: dict, model_dicts: list) -> bool: 
+        return ConfigManagerCoral._checkOptimizations(self, optimizations, model_dicts) #it's quite the same for this device, only quantization
+        
 
 # if __name__ == "__main__":
 
